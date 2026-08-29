@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -19,29 +19,69 @@ import { CompositionBar } from "@/components/charts/CompositionBar";
 import { BreakdownBars } from "@/components/charts/BreakdownBars";
 import { TransactionTable } from "@/components/recon/TransactionTable";
 import { ExceptionDrawer } from "@/components/recon/ExceptionDrawer";
-import { useRecon } from "@/store/ReconProvider";
+import { Skeleton } from "@/components/ui/Misc";
 import * as api from "@/services/api";
-import type { ExceptionType, Transaction } from "@/services/types";
+import type { ExceptionType, ReconciliationSummary, Transaction } from "@/services/types";
 
 export function Results() {
   const { jobId = "" } = useParams();
   const navigate = useNavigate();
-  const { ensureSummary } = useRecon();
-  const summary = useMemo(() => ensureSummary(), [ensureSummary]);
   const [active, setActive] = useState<Transaction | null>(null);
   const [typeFilter, setTypeFilter] = useState<ExceptionType | "all">("all");
+  const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    api.getResults(jobId).then(
+      (s) => {
+        if (alive) {
+          setSummary(s);
+          setLoading(false);
+        }
+      },
+      () => {
+        if (alive) {
+          setSummary(null);
+          setLoading(false);
+        }
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6">
+        <Skeleton className="h-8 w-72" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-72" />
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 text-center">
+        <h1 className="text-[22px] font-semibold text-ink">No result set for {jobId}</h1>
+        <p className="text-[13.5px] text-ink-2">
+          This job could not be found, or its result set is not ready yet.
+        </p>
+      </div>
+    );
+  }
 
   const explained = summary.exceptions - summary.unresolved;
 
   const exportSummary = () => {
-    const csv = api.buildExportCsv({ page: 1, pageSize: 25, status: "all" }, true);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${summary.jobId}-report.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    window.open(api.exportUrl(summary.jobId, true), "_blank");
   };
 
   return (
@@ -138,7 +178,7 @@ export function Results() {
               total={summary.recordsProcessed}
               segments={[
                 { key: "matched", label: "Matched", value: summary.matched, tone: "good" },
-                { key: "exception", label: "Exceptions", value: explained, tone: "accent" },
+                { key: "exception", label: "Exceptions", value: explained, tone: "serious" },
                 { key: "unresolved", label: "Unresolved", value: summary.unresolved, tone: "critical" },
               ]}
             />

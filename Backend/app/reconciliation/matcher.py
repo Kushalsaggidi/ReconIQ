@@ -5,9 +5,12 @@ indexes is O(n) and each lookup is O(1), so the whole three-way join is O(n)
 rather than the O(n*m) a naive nested loop would cost.  At 100k orders that is
 the difference between 0.4 seconds and roughly three hours.
 
-The bank leg is matched on ``settlement_id`` first and ``utr`` second, because
-statements vary in which they carry.  Both are exact-equality lookups on
-normalised identifiers -- there is no fuzzy matching anywhere in this module.
+The order leg is matched on ``payment_id`` first and ``order_id`` second,
+because some processors settle by payment reference and others only carry the
+merchant order reference. The bank leg is matched on ``settlement_id`` first
+and ``utr`` second, because statements vary in which they carry. All of these
+are exact-equality lookups on normalised identifiers -- there is no fuzzy
+matching anywhere in this module.
 """
 
 from __future__ import annotations
@@ -25,6 +28,10 @@ class MatchIndex:
 
     #: payment_id -> settlements (a list: a payment can be split across payouts).
     settlements_by_payment: dict[str, list[SettlementRecord]] = field(default_factory=dict)
+    #: order_id -> settlements, for processors that settle by order reference
+    #: instead of payment reference (only populated for settlement rows that
+    #: carry no payment_id at all).
+    settlements_by_order: dict[str, list[SettlementRecord]] = field(default_factory=dict)
     #: settlement_id -> bank rows crediting it.
     bank_by_settlement: dict[str, list[BankRecord]] = field(default_factory=dict)
     #: utr -> bank rows.
@@ -47,9 +54,15 @@ class MatchIndex:
         match_bank_on_utr: bool = True,
     ) -> "MatchIndex":
         by_payment: dict[str, list[SettlementRecord]] = defaultdict(list)
+        by_order: dict[str, list[SettlementRecord]] = defaultdict(list)
         settlement_count = 0
         for s in settlements:
-            by_payment[s.payment_id].append(s)
+            if s.payment_id:
+                by_payment[s.payment_id].append(s)
+            elif s.order_id:
+                # Only indexed by order_id when there is no payment_id --
+                # payment_id is the preferred join key when both are present.
+                by_order[s.order_id].append(s)
             settlement_count += 1
 
         by_settlement: dict[str, list[BankRecord]] = defaultdict(list)
@@ -64,6 +77,7 @@ class MatchIndex:
 
         return cls(
             settlements_by_payment=dict(by_payment),
+            settlements_by_order=dict(by_order),
             bank_by_settlement=dict(by_settlement),
             bank_by_utr=dict(by_utr),
             settlement_count=settlement_count,
@@ -72,8 +86,16 @@ class MatchIndex:
 
     # -- lookups ---------------------------------------------------------
 
-    def settlements_for(self, payment_id: str) -> list[SettlementRecord]:
-        return self.settlements_by_payment.get(payment_id, [])
+    def settlements_for(
+        self, payment_id: str | None, order_id: str | None = None
+    ) -> list[SettlementRecord]:
+        if payment_id:
+            hits = self.settlements_by_payment.get(payment_id)
+            if hits:
+                return hits
+        if order_id:
+            return self.settlements_by_order.get(order_id, [])
+        return []
 
     def bank_for(self, settlement: SettlementRecord | None) -> list[BankRecord]:
         """Bank credits attributable to a settlement, by ID then by UTR."""
@@ -96,7 +118,7 @@ class MatchIndex:
         """Settlements no order claimed -- money moved with no order behind it."""
         return [
             s
-            for group in self.settlements_by_payment.values()
+            for group in (*self.settlements_by_payment.values(), *self.settlements_by_order.values())
             for s in group
             if s.settlement_id not in self.consumed_settlements
         ]
@@ -135,15 +157,18 @@ class MatchResult:
         return sum(b.credit_amount for b in self.bank_rows)
 
 
-def match_order(index: MatchIndex, payment_id: str) -> MatchResult:
+def match_order(index: MatchIndex, payment_id: str | None, order_id: str | None = None) -> MatchResult:
     """Resolve one order's settlement and bank legs.
+
+    Tries ``payment_id`` first, then ``order_id`` -- whichever the settlement
+    file actually carries.
 
     When a payment has several settlements (a legitimate split payout) we take
     the first and flag it, rather than silently summing -- a split payout and a
     duplicated settlement row look identical here, and only the operator can
     say which it is.
     """
-    settlements = index.settlements_for(payment_id)
+    settlements = index.settlements_for(payment_id, order_id)
     settlement = settlements[0] if settlements else None
     bank_rows = index.bank_for(settlement)
     index.mark_consumed(settlement, bank_rows)

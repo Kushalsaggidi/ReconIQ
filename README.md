@@ -16,11 +16,12 @@ can never fail a job or change a number.
 ## Architecture
 
 ```
-CSV upload
+Upload (CSV / XLSX / XLS / JSON)
    │
    ▼
-INGESTION        app/ingestion/     flexible column mapping, chunked CSV reads,
-   │                                 per-row validation, never silently drops a row
+INGESTION        app/ingestion/     format + dataset-type detection, flexible
+   │                                 column mapping, chunked reads, per-row
+   │                                 validation, never silently drops a row
    ▼
 NORMALIZATION    app/ingestion/normalizer.py
    │                                 ₹1,000 / 1,000 / 1000.00 -> integer paise,
@@ -178,7 +179,7 @@ replaced with real `fetch` calls with no component changes.
 
 | Method | Path                                          | Purpose                          |
 |--------|-----------------------------------------------|-----------------------------------|
-| POST   | `/api/reconciliation/upload`                  | Upload one CSV (orders/settlements/bank) |
+| POST   | `/api/reconciliation/upload`                  | Upload one file — CSV/XLSX/XLS/JSON (orders/settlements/bank) |
 | GET    | `/api/reconciliation/datasets`                | List uploaded datasets |
 | POST   | `/api/reconciliation/run`                     | Queue a job → `{jobId, status}` (202) |
 | GET    | `/api/reconciliation/jobs`                    | Job history |

@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   CheckCircle2,
   FileSpreadsheet,
@@ -14,7 +15,7 @@ import {
 import { cn, formatBytes, formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/Misc";
-import { DATASET_META } from "@/services/api";
+import { DATASET_META, getUploadConfig } from "@/services/api";
 import type { DatasetFile, DatasetKind } from "@/services/types";
 
 const ICONS: Record<DatasetKind, typeof Receipt> = {
@@ -38,8 +39,15 @@ export function UploadCard({
   const Icon = ICONS[dataset.kind];
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [maxSizeLabel, setMaxSizeLabel] = useState("512 MB");
+
+  useEffect(() => {
+    getUploadConfig().then((c) => setMaxSizeLabel(`${Math.round(c.maxBytes / (1024 * 1024))} MB`));
+  }, []);
 
   const state = dataset.status;
+  const mappingEntries = Object.entries(dataset.columnMapping ?? {});
+  const hasWarnings = (dataset.warnings?.length ?? 0) > 0;
 
   return (
     <div
@@ -114,7 +122,9 @@ export function UploadCard({
               <span className="text-[12.5px] font-medium text-ink">
                 Drop file or <span className="text-accent-text underline decoration-accent-soft-line">browse</span>
               </span>
-              <span className="text-[11.5px] text-ink-3">{meta.accepts.replace(/\./g, "").toUpperCase()} · up to 200 MB</span>
+              <span className="text-[11.5px] text-ink-3">
+                {meta.accepts.replace(/\./g, "").toUpperCase()} · up to {maxSizeLabel}
+              </span>
             </motion.button>
           )}
 
@@ -161,6 +171,36 @@ export function UploadCard({
                 </div>
               </div>
 
+              {mappingEntries.length > 0 && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-3">
+                    Column mapping
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {mappingEntries.map(([field, header]) => (
+                      <li
+                        key={field}
+                        className="flex items-center justify-between gap-2 text-[11.5px] text-ink-2"
+                      >
+                        <span className="truncate">
+                          {header} <span className="text-ink-3">→</span> {field}
+                        </span>
+                        <CheckCircle2 className="size-3 shrink-0 text-good" />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {hasWarnings && (
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft px-2.5 py-2">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                  <p className="text-[11px] leading-relaxed text-warning-text">
+                    {dataset.warnings?.[0]}
+                  </p>
+                </div>
+              )}
+
               <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
                 <span className="tnum truncate text-[11px] text-ink-3">{dataset.checksum}</span>
                 <div className="flex shrink-0 items-center gap-1">
@@ -184,7 +224,9 @@ export function UploadCard({
                 <AlertCircle className="mt-0.5 size-4 shrink-0 text-critical" />
                 <div className="min-w-0">
                   <p className="truncate text-[12.5px] font-medium text-ink">{dataset.name}</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-critical-text">{dataset.error}</p>
+                  <p className="mt-1 whitespace-pre-line text-[11.5px] leading-relaxed text-critical-text">
+                    {dataset.error}
+                  </p>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-1 border-t border-critical-line pt-3">

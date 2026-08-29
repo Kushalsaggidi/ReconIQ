@@ -35,9 +35,15 @@ class OrderRecord:
 @dataclass(slots=True)
 class SettlementRecord:
     settlement_id: str
-    payment_id: str
     #: Amount Razorpay says it settled (net), in minor units.
     settlement_amount: int
+    #: The order/payment leg a settlement joins against -- some processors
+    #: settle by payment reference, others only carry the merchant order
+    #: reference. At least one of the two is guaranteed present (enforced at
+    #: column-resolution time); the matcher tries payment_id first, then
+    #: falls back to order_id.
+    payment_id: str | None = None
+    order_id: str | None = None
     #: Gross captured amount before deductions. Falls back to the order amount
     #: when the settlement file does not carry it.
     gross_amount: int | None = None
@@ -160,3 +166,13 @@ class NormalizedDataset:
     issues: dict[str, Any]
     checksum: str | None = None
     source_name: str | None = None
+    #: File format the source was read as, e.g. "csv", "xlsx", "json".
+    format: str = "csv"
+    #: Header columns present but not recognised as any canonical field.
+    unmapped_headers: list[str] = field(default_factory=list)
+    #: Dataset kind the headers most resemble, independent of what the caller
+    #: asked to parse it as -- a cross-check, never an override.
+    detected_kind: str | None = None
+    detected_confidence: float | None = None
+    #: Non-fatal notices (e.g. "looks more like settlements than orders").
+    warnings: list[str] = field(default_factory=list)

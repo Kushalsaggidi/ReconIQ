@@ -22,7 +22,7 @@ from app.core.errors import (
     ValidationFailure,
 )
 from app.core.money import MoneyParseError
-from app.ingestion.column_map import ColumnMapping, resolve_columns
+from app.ingestion.column_map import ColumnMapping, detect_dataset_kind, resolve_columns
 from app.ingestion.normalizer import (
     DateParseError,
     normalize_amount,
@@ -31,7 +31,7 @@ from app.ingestion.normalizer import (
     normalize_id,
     normalize_text,
 )
-from app.ingestion.readers import ChunkReader, RowChunk, checksum_file, reader_for
+from app.ingestion.readers import ChunkReader, RowChunk, checksum_file, format_of, reader_for
 from app.schemas.domain import BankRecord, NormalizedDataset, OrderRecord, SettlementRecord
 
 #: A row that produces one of these is rejected; the job continues.
@@ -125,7 +125,21 @@ def _build_order(ctx: _RowContext) -> OrderRecord:
 
 def _build_settlement(ctx: _RowContext) -> SettlementRecord:
     settlement_id = _require_id(ctx, "settlement_id")
-    payment_id = _require_id(ctx, "payment_id")
+    # A settlement joins to Orders by payment_id when the processor's export
+    # carries one; otherwise the merchant order reference is the only link
+    # available (column resolution already guaranteed at least one exists).
+    payment_id = normalize_id(ctx.raw("payment_id"))
+    order_id = normalize_id(ctx.raw("order_id"))
+    if not payment_id and not order_id:
+        raise _RowRejected(
+            ctx.issue(
+                ErrorCode.MISSING_IDENTIFIER,
+                "Settlement row has neither a payment_id nor an order_id, so "
+                "it cannot be joined to an order.",
+                "payment_id",
+                settlement_id,
+            )
+        )
     currency = normalize_currency(ctx.raw("currency"))
 
     def amount(field: str, default: int | None) -> int:
@@ -152,6 +166,7 @@ def _build_settlement(ctx: _RowContext) -> SettlementRecord:
     return SettlementRecord(
         settlement_id=settlement_id,
         payment_id=payment_id,
+        order_id=order_id,
         settlement_amount=settlement_amount,
         gross_amount=gross,
         # Deduction components are stored as positive magnitudes; some exports
@@ -289,6 +304,33 @@ def iter_records(
     _ = mapping  # kept for clarity; mapping is reported by load_dataset
 
 
+def _guard_dataset_kind(kind: DatasetKind, detection) -> None:  # noqa: ANN001
+    """Block an upload whose headers confidently belong to a different kind.
+
+    A genuinely ambiguous file (close scores) is *not* blocked here -- it is
+    surfaced as a warning instead, since the operator already made an explicit
+    choice of slot and forcing a second decision on top of it would be noise.
+    Only a *confident* mismatch (this reads like settlements, not orders) is
+    worth stopping for.
+    """
+    if detection.ambiguous or detection.best == kind:
+        return
+    own_score = detection.scores.get(kind, 0.0)
+    if detection.confidence >= 0.6 and detection.confidence - own_score >= 0.25:
+        raise ValidationFailure(
+            f"This file's columns look like a {detection.best.value} file, not "
+            f"{kind.value}. Upload it under the {detection.best.value} slot, or "
+            f"re-check the file if {kind.value} was intended.",
+            code=ErrorCode.AMBIGUOUS_COLUMN,
+            context={
+                "kind": kind.value,
+                "detectedKind": detection.best.value,
+                "confidence": round(detection.confidence, 3),
+                "scores": {k.value: round(v, 3) for k, v in detection.scores.items()},
+            },
+        )
+
+
 def load_dataset(
     source: Path,
     kind: DatasetKind,
@@ -305,6 +347,8 @@ def load_dataset(
     """
     reader = reader_for(source, kind, chunk_size)
     collector = IssueCollector(max_samples=max_issue_samples)
+    detection = detect_dataset_kind(reader.headers)
+    _guard_dataset_kind(kind, detection)
     mapping = resolve_columns(kind, reader.headers)
 
     records: list[Any] = []
@@ -320,6 +364,23 @@ def load_dataset(
             context={"kind": kind.value, "issues": collector.to_dict()},
         )
 
+    warnings: list[str] = []
+    if detection.best != kind and not detection.ambiguous:
+        warnings.append(
+            f"Headers resemble a {detection.best.value} file "
+            f"({detection.confidence:.0%} confidence) about as much as a "
+            f"{kind.value} file ({detection.scores.get(kind, 0.0):.0%}). "
+            "Double-check the dataset type if results look wrong."
+        )
+    elif detection.ambiguous:
+        ranked = sorted(detection.scores.items(), key=lambda kv: kv[1], reverse=True)
+        top_two = ", ".join(f"{k.value} ({v:.0%})" for k, v in ranked[:2])
+        warnings.append(
+            f"Dataset type is ambiguous from headers alone -- {top_two} scored "
+            f"about equally. Proceeding with the selected type ({kind.value}); "
+            "double-check the results if this file was meant to be something else."
+        )
+
     return NormalizedDataset(
         kind=kind.value,
         records=records,
@@ -329,4 +390,9 @@ def load_dataset(
         issues=collector.to_dict(),
         checksum=checksum_file(source) if compute_checksum else None,
         source_name=source.name,
+        format=format_of(source),
+        unmapped_headers=list(mapping.unmapped_headers),
+        detected_kind=detection.best.value,
+        detected_confidence=round(detection.confidence, 3),
+        warnings=warnings,
     )

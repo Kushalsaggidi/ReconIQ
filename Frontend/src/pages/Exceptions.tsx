@@ -1,21 +1,21 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Search, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowRight, Search, Sparkles } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader, SectionHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/Misc";
 import { BreakdownBars } from "@/components/charts/BreakdownBars";
 import { TransactionTable } from "@/components/recon/TransactionTable";
 import { ExceptionDrawer } from "@/components/recon/ExceptionDrawer";
 import { useRecon } from "@/store/ReconProvider";
-import { EXCEPTION_LABELS, HERO_ORDER_ID } from "@/services/api";
+import { EXCEPTION_LABELS } from "@/services/api";
 
 import type { ExceptionType, Transaction } from "@/services/types";
 
 export function Exceptions() {
-  const { ensureSummary } = useRecon();
-  const summary = useMemo(() => ensureSummary(), [ensureSummary]);
+  const { summary } = useRecon();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [active, setActive] = useState<Transaction | null>(null);
@@ -32,6 +32,19 @@ export function Exceptions() {
     setParams(p, { replace: true });
   };
 
+  if (!summary) {
+    return (
+      <Card>
+        <EmptyState
+          icon={<AlertTriangle className="size-5" />}
+          title="No reconciliation job loaded"
+          description="Run a reconciliation to see its exception queue."
+          action={<Button onClick={() => navigate("/new")}>New Reconciliation</Button>}
+        />
+      </Card>
+    );
+  }
+
   const explained = summary.exceptions - summary.unresolved;
 
   return (
@@ -40,12 +53,6 @@ export function Exceptions() {
         eyebrow="Exception queue"
         title="Exceptions"
         description="Every record the engine could not close on its own. Classification and reasoning come from the model; every amount comes from the engine."
-        actions={
-          <Button variant="secondary" onClick={() => navigate(`/exceptions/${HERO_ORDER_ID}`)}>
-            <ShieldAlert className="size-4" />
-            Open the unresolved example
-          </Button>
-        }
       />
 
       {/* ---------------- summary strip ---------------- */}
@@ -141,7 +148,7 @@ export function Exceptions() {
 
       <p className="flex items-center justify-center gap-2 text-center text-[12px] text-ink-3">
         <Search className="size-3.5" />
-        Tip: press ⌘K and enter an order ID such as {HERO_ORDER_ID} to jump straight to a case.
+        Tip: press ⌘K and enter an order ID to jump straight to a case.
       </p>
 
       <ExceptionDrawer jobId={summary.jobId} transaction={active} onClose={() => setActive(null)} />

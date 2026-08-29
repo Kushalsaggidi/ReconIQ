@@ -22,32 +22,81 @@ import * as api from "@/services/api";
 import { useRecon } from "@/store/ReconProvider";
 import type { JobProgress } from "@/services/types";
 
-const POLL_MS = 110;
+const POLL_MS = 900;
+
+const IDLE_PROGRESS: JobProgress = {
+  jobId: "",
+  status: "queued",
+  recordsDetected: 0,
+  recordsProcessed: 0,
+  matchedSoFar: 0,
+  exceptionsSoFar: 0,
+  ratePerSecond: 0,
+  elapsedMs: 0,
+  etaMs: 0,
+  percent: 0,
+  stages: [],
+  currentStageLabel: "Queued",
+};
 
 export function Processing() {
   const { jobId = "" } = useParams();
   const navigate = useNavigate();
   const { completeRun, isDemo } = useRecon();
-  const [progress, setProgress] = useState<JobProgress>(() => api.getJobStatus(jobId));
+  const [progress, setProgress] = useState<JobProgress>({ ...IDLE_PROGRESS, jobId });
   const handedOff = useRef(false);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      const next = api.getJobStatus(jobId);
-      setProgress(next);
-      if (next.status === "completed" && !handedOff.current) {
-        handedOff.current = true;
-        clearInterval(id);
-        completeRun(jobId);
-        // let the completion state land before the screen changes
-        setTimeout(() => navigate(`/results/${jobId}`, { replace: true }), 1_050);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      try {
+        const next = await api.getJobStatus(jobId);
+        if (cancelled) return;
+        setProgress(next);
+
+        if (next.status === "completed" && !handedOff.current) {
+          handedOff.current = true;
+          await completeRun(jobId);
+          if (cancelled) return;
+          // let the completion state land before the screen changes
+          setTimeout(() => {
+            if (!cancelled) navigate(`/results/${jobId}`, { replace: true });
+          }, 1_050);
+          return;
+        }
+        if (next.status === "failed") return;
+        timer = setTimeout(poll, POLL_MS);
+      } catch {
+        if (!cancelled) timer = setTimeout(poll, POLL_MS);
       }
-    }, POLL_MS);
-    return () => clearInterval(id);
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [jobId, completeRun, navigate]);
 
   const done = progress.status === "completed";
+  const failed = progress.status === "failed";
   const eta = Math.max(0, Math.ceil(progress.etaMs / 1000));
+
+  if (failed) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 text-center">
+        <Badge tone="critical" icon={<AlertTriangle className="size-3.5" />}>
+          Failed
+        </Badge>
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-ink">Reconciliation failed</h1>
+        <p className="text-[14px] leading-relaxed text-ink-2">
+          {progress.error ?? "The job could not be completed. Check the audit trail for details."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

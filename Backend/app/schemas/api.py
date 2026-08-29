@@ -55,6 +55,15 @@ class DatasetFileResponse(ApiModel):
     #: so an operator can tell "ignored" apart from "silently dropped".
     unmappedColumns: list[str] = Field(default_factory=list)
     issues: dict[str, Any] | None = None
+    #: File format the upload was parsed as, e.g. "csv", "xlsx", "json".
+    format: str = "csv"
+    #: Dataset kind the headers most resemble -- a cross-check against `kind`,
+    #: surfaced so the UI can flag "this looks like settlements, not orders".
+    detectedKind: DatasetKind | None = None
+    detectionConfidence: float | None = None
+    warnings: list[str] = Field(default_factory=list)
+    #: True once the file has no blocking issues and can be used in a run.
+    ready: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -310,4 +319,5 @@ class HealthResponse(ApiModel):
     environment: str
     database: str
     ai: dict[str, Any]
+    upload: dict[str, Any] = Field(default_factory=dict)
     version: str = "1.0.0"

@@ -97,7 +97,7 @@ export function AuditTimeline({ events }: { events: AuditEvent[] }) {
                 <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2.5">
                   {Object.entries(e.meta).map(([k, v]) => (
                     <span key={k} className="text-[11.5px] text-ink-3">
-                      {k}: <span className="tnum font-medium text-ink-2">{v}</span>
+                      {k}: <span className="tnum font-medium text-ink-2">{String(v)}</span>
                     </span>
                   ))}
                 </div>

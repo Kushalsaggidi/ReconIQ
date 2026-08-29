@@ -9,16 +9,15 @@ import {
   X,
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
-import { EXCEPTION_COUNT } from "@/services/dataset";
 
 export const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/new", label: "New Reconciliation", icon: PlusCircle },
   { to: "/history", label: "Reconciliation History", icon: ListChecks },
-  { to: "/exceptions", label: "Exceptions", icon: AlertTriangle, badge: EXCEPTION_COUNT },
+  { to: "/exceptions", label: "Exceptions", icon: AlertTriangle },
   { to: "/audit", label: "Audit Logs", icon: FileClock },
   { to: "/settings", label: "Settings", icon: Settings },
-];
+] as { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; badge?: number }[];
 
 export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
   return (

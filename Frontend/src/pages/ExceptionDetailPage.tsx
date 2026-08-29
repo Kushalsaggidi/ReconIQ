@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Flag, SearchX, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -15,12 +15,16 @@ import type { ExceptionDetail } from "@/services/types";
 export function ExceptionDetailPage() {
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
-  const { ensureSummary } = useRecon();
-  const summary = useMemo(() => ensureSummary(), [ensureSummary]);
+  const { summary } = useRecon();
   const [detail, setDetail] = useState<ExceptionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!summary) {
+      setLoading(false);
+      setDetail(null);
+      return;
+    }
     let alive = true;
     setLoading(true);
     api.getExceptionDetail(summary.jobId, orderId).then((d) => {
@@ -32,7 +36,20 @@ export function ExceptionDetailPage() {
     return () => {
       alive = false;
     };
-  }, [orderId, summary.jobId]);
+  }, [orderId, summary]);
+
+  if (!summary) {
+    return (
+      <Card className="mx-auto max-w-2xl">
+        <EmptyState
+          icon={<SearchX className="size-5" />}
+          title="No reconciliation job loaded"
+          description="Run a reconciliation to see its exceptions."
+          action={<Button onClick={() => navigate("/new")}>New Reconciliation</Button>}
+        />
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
@@ -61,14 +78,9 @@ export function ExceptionDetailPage() {
           title={`No exception found for ${orderId}`}
           description="Either the order ID does not exist in this batch, or the record reconciled cleanly and has no exception to investigate."
           action={
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => navigate("/exceptions")}>
-                Back to exceptions
-              </Button>
-              <Button onClick={() => navigate(`/exceptions/${api.HERO_ORDER_ID}`)}>
-                Open a live example
-              </Button>
-            </div>
+            <Button variant="secondary" onClick={() => navigate("/exceptions")}>
+              Back to exceptions
+            </Button>
           }
         />
       </Card>

@@ -30,12 +30,12 @@ interface ReconState {
 
   attachFile: (kind: DatasetKind, file: File) => Promise<void>;
   removeFile: (kind: DatasetKind) => void;
-  loadDemoDatasets: () => void;
+  loadDemoDatasets: () => Promise<void>;
   resetDatasets: () => void;
   startRun: () => Promise<string>;
-  completeRun: (jobId: string) => void;
-  /** Falls back to the demo batch so any screen is deep-linkable. */
-  ensureSummary: () => ReconciliationSummary;
+  completeRun: (jobId: string) => Promise<void>;
+  /** Fetches and stores the result set for a job, real GET each time. */
+  refreshSummary: (jobId: string) => Promise<void>;
 }
 
 const Ctx = createContext<ReconState | null>(null);
@@ -57,6 +57,20 @@ export function ReconProvider({ children }: { children: ReactNode }) {
   const attachFile = useCallback(
     async (kind: DatasetKind, file: File) => {
       setIsDemo(false);
+      const validationError = await api.validateFileBeforeUpload(file);
+      if (validationError) {
+        patch(kind, {
+          kind,
+          name: file.name,
+          size: file.size,
+          status: "error",
+          progress: 100,
+          rows: null,
+          error: validationError,
+          isDemo: false,
+        });
+        return;
+      }
       patch(kind, {
         kind,
         name: file.name,
@@ -78,15 +92,25 @@ export function ReconProvider({ children }: { children: ReactNode }) {
     setIsDemo(false);
   }, []);
 
-  const loadDemoDatasets = useCallback(() => {
-    const files = api.demoDatasetFiles();
-    setDatasets({
-      orders: files[0],
-      settlements: files[1],
-      bank: files[2],
-    });
+  const loadDemoDatasets = useCallback(async () => {
     setIsDemo(true);
-  }, []);
+    await Promise.all(
+      KINDS.map(async (kind) => {
+        patch(kind, {
+          kind,
+          name: api.DATASET_META[kind].demoFile,
+          size: 0,
+          status: "uploading",
+          progress: 0,
+          rows: null,
+          error: undefined,
+          isDemo: true,
+        });
+        const result = await api.loadDemoDataset(kind, (p) => patch(kind, { progress: p }));
+        patch(kind, { ...result, isDemo: true });
+      }),
+    );
+  }, [patch]);
 
   const resetDatasets = useCallback(() => {
     setDatasets({
@@ -100,12 +124,19 @@ export function ReconProvider({ children }: { children: ReactNode }) {
   const readyCount = KINDS.filter((k) => datasets[k].status === "ready").length;
   // Orders + settlements are mandatory; the bank statement sharpens the match.
   const canRun =
-    isDemo || (datasets.orders.status === "ready" && datasets.settlements.status === "ready");
+    datasets.orders.status === "ready" && datasets.settlements.status === "ready";
 
   const startRun = useCallback(async () => {
-    const list = KINDS.map((k) => datasets[k]).filter((d) => d.status === "ready");
+    const orders = datasets.orders;
+    const settlements = datasets.settlements;
+    const bank = datasets.bank;
+    if (!orders.datasetId || !settlements.datasetId) {
+      throw new Error("Orders and settlements datasets must be uploaded before running.");
+    }
     const { jobId: id } = await api.runReconciliation({
-      datasets: list,
+      ordersDatasetId: orders.datasetId,
+      settlementsDatasetId: settlements.datasetId,
+      bankDatasetId: bank.status === "ready" ? bank.datasetId : undefined,
       source: isDemo ? "Demo dataset" : "Manual upload",
     });
     setJobId(id);
@@ -113,20 +144,18 @@ export function ReconProvider({ children }: { children: ReactNode }) {
     return id;
   }, [datasets, isDemo]);
 
-  const completeRun = useCallback(
-    (id: string) => {
-      const list = KINDS.map((k) => datasets[k]).filter((d) => d.status === "ready");
-      setSummary(api.getResultsSync(id, list.length ? list : undefined));
-      setJobId(id);
-    },
-    [datasets],
-  );
+  const refreshSummary = useCallback(async (id: string) => {
+    const s = await api.getResults(id);
+    setSummary(s);
+    setJobId(id);
+  }, []);
 
-  const ensureSummary = useCallback(() => {
-    if (summary) return summary;
-    const fallback = api.getResultsSync(jobId ?? "RCN-20260828-428");
-    return fallback;
-  }, [summary, jobId]);
+  const completeRun = useCallback(
+    async (id: string) => {
+      await refreshSummary(id);
+    },
+    [refreshSummary],
+  );
 
   const value = useMemo<ReconState>(
     () => ({
@@ -142,7 +171,7 @@ export function ReconProvider({ children }: { children: ReactNode }) {
       resetDatasets,
       startRun,
       completeRun,
-      ensureSummary,
+      refreshSummary,
     }),
     [
       datasets,
@@ -157,7 +186,7 @@ export function ReconProvider({ children }: { children: ReactNode }) {
       resetDatasets,
       startRun,
       completeRun,
-      ensureSummary,
+      refreshSummary,
     ],
   );
 

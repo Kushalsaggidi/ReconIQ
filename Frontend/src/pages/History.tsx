@@ -7,24 +7,22 @@ import { Card, SectionHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { EmptyState } from "@/components/ui/Misc";
-import { useRecon } from "@/store/ReconProvider";
 import * as api from "@/services/api";
 import type { HistoryEntry } from "@/services/types";
 
 export function History() {
-  const { summary } = useRecon();
   const navigate = useNavigate();
   const [rows, setRows] = useState<HistoryEntry[] | null>(null);
 
   useEffect(() => {
     let alive = true;
-    api.getHistory(summary ?? undefined).then((r) => {
+    api.getHistory().then((r) => {
       if (alive) setRows(r);
     });
     return () => {
       alive = false;
     };
-  }, [summary]);
+  }, []);
 
   const columns = useMemo<Column<HistoryEntry>[]>(
     () => [

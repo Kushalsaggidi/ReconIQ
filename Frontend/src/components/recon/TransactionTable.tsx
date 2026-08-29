@@ -111,14 +111,7 @@ export function TransactionTable({
   );
 
   const exportCsv = () => {
-    const csv = api.buildExportCsv(query, exceptionsOnly);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${jobId}-${exceptionsOnly ? "exceptions" : "transactions"}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    window.open(api.exportUrl(jobId, exceptionsOnly), "_blank");
   };
 
   const columns: Column<Transaction>[] = [
@@ -310,7 +303,7 @@ export function TransactionTable({
 
       <div className="flex items-center justify-between gap-3 border-t border-line bg-surface-2 px-5 py-2.5">
         <p className="text-[11.5px] text-ink-3">
-          Rows are paged server-side — the full batch of {formatNumber(api.TOTAL_RECORDS)} records is never rendered
+          Rows are paged server-side — the full batch of {formatNumber(data?.total ?? 0)} records is never rendered
           at once.
         </p>
         {loading && data && <span className="text-[11.5px] text-ink-3">Updating…</span>}

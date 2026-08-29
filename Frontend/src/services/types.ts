@@ -19,6 +19,19 @@ export interface DatasetFile {
   uploadedAt?: string;
   checksum?: string;
   isDemo?: boolean;
+  /** Server-assigned id for this uploaded dataset — required to start a run. */
+  datasetId?: string;
+  /** File format the backend parsed the upload as, e.g. "csv", "xlsx", "json". */
+  format?: string;
+  /** Source-header -> canonical-field mapping the backend resolved. */
+  columnMapping?: Record<string, string>;
+  /** Headers present in the file that were not recognised as any canonical field. */
+  unmappedColumns?: string[];
+  /** Dataset kind the headers most resemble — a cross-check against `kind`. */
+  detectedKind?: DatasetKind | null;
+  detectionConfidence?: number | null;
+  /** Non-fatal ingestion notices, e.g. a low-confidence dataset-type match. */
+  warnings?: string[];
 }
 
 export type TxnStatus = "matched" | "exception" | "unresolved";
@@ -125,6 +138,7 @@ export interface JobProgress {
   percent: number;
   stages: StageState[];
   currentStageLabel: string;
+  error?: string | null;
 }
 
 export interface ExceptionBucket {
@@ -160,8 +174,17 @@ export interface AuditEvent {
   description: string;
   actor: "Engine" | "AI Analyst" | "User" | "System";
   engine: "deterministic" | "ai" | "system";
-  status: "ok" | "info" | "warning";
-  meta?: Record<string, string>;
+  status: string;
+  entityId?: string | null;
+  meta?: Record<string, unknown> | null;
+}
+
+export interface AuditPage {
+  rows: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface TrendPoint {
@@ -179,6 +202,8 @@ export interface TableQuery {
   search?: string;
   status?: TxnStatus | "all";
   exceptionType?: ExceptionType | "all";
+  // backend has no date-range filter yet — kept in the query shape for the UI
+  // control, but api.ts does not send it to the server.
   dateRange?: "all" | "7d" | "14d" | "30d";
   sortBy?: "orderId" | "expected" | "settled" | "difference" | "settlementDate";
   sortDir?: "asc" | "desc";

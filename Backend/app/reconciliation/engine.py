@@ -159,7 +159,10 @@ class ReconciliationEngine:
         This is the seam for chunked/parallel processing: it depends only on the
         batch and the (read-mostly) index, never on run-level state.
         """
-        return [self.reconcile_one(order, match_order(index, order.payment_id)) for order in orders]
+        return [
+            self.reconcile_one(order, match_order(index, order.payment_id, order.order_id))
+            for order in orders
+        ]
 
     def reconcile_one(self, order: OrderRecord, match: MatchResult) -> ReconOutcome:
         """The whole business rule for a single order, start to finish."""
@@ -314,10 +317,14 @@ class ReconciliationEngine:
         for settlement in index.orphan_settlements():
             bank_rows = index.bank_for(settlement)
             credited = sum(b.credit_amount for b in bank_rows) or settlement.settlement_amount
+            # Whichever join key this settlement actually carried -- payment_id
+            # when present, else the merchant order reference.
+            join_ref = settlement.payment_id or settlement.order_id or settlement.settlement_id
+            join_label = "payment ID" if settlement.payment_id else "order reference"
             outcomes.append(
                 ReconOutcome(
-                    order_id=f"(no order) {settlement.payment_id}",
-                    payment_id=settlement.payment_id,
+                    order_id=f"(no order) {join_ref}",
+                    payment_id=join_ref,
                     settlement_id=settlement.settlement_id,
                     bank_reference=bank_rows[0].utr if bank_rows else settlement.utr,
                     expected_amount=0,
@@ -336,7 +343,7 @@ class ReconciliationEngine:
                     reason=(
                         f"Settlement {settlement.settlement_id} credits "
                         f"{format_money(credited, settlement.currency)} but no order "
-                        "references its payment ID."
+                        f"references its {join_label}."
                     ),
                     currency=settlement.currency,
                     settlement_date=settlement.settlement_date,
@@ -348,7 +355,7 @@ class ReconciliationEngine:
                             True,
                             [
                                 ("Settlement ID", settlement.settlement_id),
-                                ("Payment ID", settlement.payment_id),
+                                ("Payment ID", settlement.payment_id or settlement.order_id),
                                 ("Net settled",
                                  format_money(settlement.settlement_amount, settlement.currency)),
                             ],

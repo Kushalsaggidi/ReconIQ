@@ -116,7 +116,13 @@ async def upload_dataset(
         uploadedAt=created_at,
         checksum=dataset.checksum,
         columnMapping=dataset.column_mapping,
+        unmappedColumns=dataset.unmapped_headers,
         issues=dataset.issues,
+        format=dataset.format,
+        detectedKind=DatasetKind(dataset.detected_kind) if dataset.detected_kind else None,
+        detectionConfidence=dataset.detected_confidence,
+        warnings=dataset.warnings,
+        ready=True,
     )
 
 

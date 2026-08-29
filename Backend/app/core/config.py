@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
 
     # --- CORS (the Lovable/Next.js frontend origin) --------------------
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8080"
 
     # --- Persistence ---------------------------------------------------
     # SQLite for local dev; set DATABASE_URL to a postgresql+psycopg:// URL in
@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     storage_backend: Literal["local"] = "local"
     upload_storage_path: Path = BASE_DIR / "data" / "uploads"
     max_upload_bytes: int = 512 * 1024 * 1024  # 512 MiB
-    allowed_upload_suffixes: str = ".csv"
+    #: Single source of truth for supported upload formats -- the frontend
+    #: mirrors this via GET /health rather than hard-coding its own list.
+    allowed_upload_suffixes: str = ".csv,.xlsx,.xls,.json"
 
     # --- Reconciliation engine ------------------------------------------
     #: Batch size the engine pulls per iteration. Bounds peak memory.

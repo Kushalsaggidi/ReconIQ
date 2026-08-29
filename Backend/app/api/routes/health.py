@@ -36,4 +36,10 @@ def health() -> HealthResponse:
             "keyConfigured": bool(settings.llm_api_key),
             "maxExceptionsPerJob": settings.ai_max_exceptions_per_job,
         },
+        upload={
+            # Single source of truth for the frontend's upload validation --
+            # it fetches this rather than hard-coding formats/limits of its own.
+            "maxBytes": settings.max_upload_bytes,
+            "allowedFormats": sorted(s.lstrip(".") for s in settings.allowed_suffix_set),
+        },
     )

@@ -15,10 +15,13 @@ export function useDemoRun() {
   const run = useCallback(async () => {
     if (starting) return;
     setStarting(true);
-    loadDemoDatasets();
-    const jobId = await startRun();
-    navigate(`/processing/${jobId}`);
-    setStarting(false);
+    try {
+      await loadDemoDatasets();
+      const jobId = await startRun();
+      navigate(`/processing/${jobId}`);
+    } finally {
+      setStarting(false);
+    }
   }, [starting, loadDemoDatasets, startRun, navigate]);
 
   return { run, starting };

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Lock, ShieldCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Download, FileClock, Lock, ShieldCheck } from "lucide-react";
 import { formatDateTime, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, SectionHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Segmented } from "@/components/ui/Field";
-import { Skeleton } from "@/components/ui/Misc";
+import { EmptyState, Skeleton } from "@/components/ui/Misc";
 import { AuditTimeline } from "@/components/recon/AuditTimeline";
 import { useRecon } from "@/store/ReconProvider";
 import * as api from "@/services/api";
@@ -14,12 +15,16 @@ import type { AuditEvent } from "@/services/types";
 type Lens = "all" | "deterministic" | "ai";
 
 export function AuditLogs() {
-  const { ensureSummary } = useRecon();
-  const summary = useMemo(() => ensureSummary(), [ensureSummary]);
+  const { summary } = useRecon();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<AuditEvent[] | null>(null);
   const [lens, setLens] = useState<Lens>("all");
 
   useEffect(() => {
+    if (!summary) {
+      setEvents(null);
+      return;
+    }
     let alive = true;
     api.getAuditTrail(summary.jobId).then((e) => {
       if (alive) setEvents(e);
@@ -27,7 +32,20 @@ export function AuditLogs() {
     return () => {
       alive = false;
     };
-  }, [summary.jobId]);
+  }, [summary]);
+
+  if (!summary) {
+    return (
+      <Card className="mx-auto max-w-2xl">
+        <EmptyState
+          icon={<FileClock className="size-5" />}
+          title="No reconciliation job loaded"
+          description="Run a reconciliation to see its audit trail."
+          action={<Button onClick={() => navigate("/new")}>New Reconciliation</Button>}
+        />
+      </Card>
+    );
+  }
 
   const filtered = useMemo(() => {
     if (!events) return null;
@@ -88,10 +106,10 @@ export function AuditLogs() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="neutral" size="sm" icon={<Lock className="size-3" />}>
-              sha256:9c41e…
+              Job {summary.jobId}
             </Badge>
             <Badge tone="good" size="sm">
-              12 events
+              {formatNumber(events?.length ?? 0)} events
             </Badge>
           </div>
         </CardBody>
