@@ -5,23 +5,19 @@ export interface Segment {
   key: string;
   label: string;
   value: number;
-  /**
-   * State roles, validated as a set against both surfaces:
-   * good = closed by the engine, accent = explained by a record, critical = unexplained.
-   * The same two roles carry through BreakdownBars, so the reading is consistent.
-   */
-  tone: "good" | "accent" | "critical";
+  /** Status roles only — this chart encodes state, not identity. */
+  tone: "good" | "serious" | "critical";
 }
 
 const FILL = {
   good: "var(--good)",
-  accent: "var(--accent)",
+  serious: "var(--serious)",
   critical: "var(--critical)",
 };
 
 const TEXT = {
   good: "text-good-text",
-  accent: "text-accent-text",
+  serious: "text-serious-text",
   critical: "text-critical-text",
 };
 

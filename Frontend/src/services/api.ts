@@ -597,12 +597,4 @@ export function buildExportCsv(q: TableQuery, exceptionsOnly: boolean, limit = 5
   return lines.join("\n");
 }
 
-export {
-  EXCEPTION_LABELS,
-  EXCEPTION_COUNT,
-  MATCHED_COUNT,
-  HERO_ORDER_ID,
-  TOTAL_RECORDS,
-  MATCH_RATE,
-  dayToDate,
-};
+export { EXCEPTION_LABELS, HERO_ORDER_ID, TOTAL_RECORDS, MATCH_RATE, dayToDate };

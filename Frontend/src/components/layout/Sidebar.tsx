@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
-import { EXCEPTION_COUNT } from "@/services/api";
+import { EXCEPTION_COUNT } from "@/services/dataset";
 
 export const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },

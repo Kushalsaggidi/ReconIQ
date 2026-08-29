@@ -119,11 +119,7 @@ function build(): Store {
         difference[i] = 1 + Math.floor(rand() * 99);
         break;
       case 5: // unresolved — nothing in the records accounts for it
-        // Capped against the order value so a settlement never goes negative.
-        difference[i] = Math.min(
-          Math.round((50 + rand() * 900) * 100),
-          Math.round(gross * 0.62),
-        );
+        difference[i] = Math.round((50 + rand() * 900) * 100);
         break;
       default:
         difference[i] = 0;
