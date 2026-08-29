@@ -1,4 +1,4 @@
-# Razorpay Settlement Reconciler — Frontend
+# PayRecon — AI-Powered Settlement Reconciliation Agent (Frontend)
 
 A financial reconciliation engine with **AI-assisted exception analysis**.
 

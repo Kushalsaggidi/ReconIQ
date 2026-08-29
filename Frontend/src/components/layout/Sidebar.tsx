@@ -31,9 +31,9 @@ export function Sidebar({ onNavigate, onClose }: { onNavigate?: () => void; onCl
           </span>
           <div className="min-w-0">
             <div className="truncate text-[13.5px] font-semibold leading-tight tracking-[-0.01em] text-ink">
-              Settlement Reconciler
+              PayRecon
             </div>
-            <div className="truncate text-[11px] leading-tight text-ink-3">Razorpay · Finance Ops</div>
+            <div className="truncate text-[11px] leading-tight text-ink-3">AI-Powered Settlement Reconciliation</div>
           </div>
         </div>
         {onClose && (

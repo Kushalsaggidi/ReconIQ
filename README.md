@@ -1,4 +1,4 @@
-# Razorpay Settlement Reconciliation Agent — Backend
+# PayRecon — AI-Powered Settlement Reconciliation Agent
 
 A deterministic three-way settlement reconciliation engine (Orders ↔ Razorpay
 Settlements ↔ Bank Statement) with an advisory AI layer for exception
