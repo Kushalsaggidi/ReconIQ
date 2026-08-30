@@ -13,6 +13,50 @@ can never fail a job or change a number.
 
 ---
 
+## Product tour
+
+**Overview** — live KPIs (match rate, exceptions, variance) the moment a batch
+finishes, with one click to load the bundled demo dataset if you don't have
+your own files handy.
+
+<img src="docs/screenshots/01-overview.png" width="800" alt="Overview dashboard">
+
+**New Reconciliation** — drop in Orders + Settlements (Bank Statement is
+optional); the five-stage pipeline (Upload → Validate → Reconcile → Analyze
+exceptions → Generate report) typically finishes in under 15 seconds.
+
+<img src="docs/screenshots/02-new-reconciliation.png" width="800" alt="New reconciliation upload screen">
+
+**Reconciliation History** — every run is retained with its full result set,
+so a batch can be reopened and inspected exactly as it was reported.
+
+<img src="docs/screenshots/03-history.png" width="800" alt="Reconciliation history table">
+
+**Exceptions** — every record the deterministic engine couldn't close on its
+own, broken down by category. The engine draws the line between "explained by
+a record" and "no supporting record — human review"; the model never gets to
+move that line.
+
+<img src="docs/screenshots/04-exceptions.png" width="800" alt="Exception breakdown by category">
+<img src="docs/screenshots/05-exceptions-table.png" width="800" alt="Exception queue table">
+
+**Exception detail** — the financial comparison and variance decomposition are
+computed by the engine (labelled as such); the AI layer only classifies and
+explains, always with a confidence score, and can flag a record for human
+review but never clear one.
+
+<img src="docs/screenshots/06-exception-detail-financial.png" width="800" alt="Exception detail: financial comparison">
+<img src="docs/screenshots/07-exception-detail-ai-analysis.png" width="800" alt="Exception detail: AI analysis">
+<img src="docs/screenshots/08-exception-detail-recommended-action.png" width="800" alt="Exception detail: recommended action">
+
+**Audit Logs** — an append-only trail of every step, tagged by the layer that
+performed it (Engine vs. AI Analyst), sealed once the report is generated.
+
+<img src="docs/screenshots/09-audit-logs.png" width="800" alt="Audit trail">
+<img src="docs/screenshots/10-audit-logs-events.png" width="800" alt="Audit trail event list">
+
+---
+
 ## Architecture
 
 ```
