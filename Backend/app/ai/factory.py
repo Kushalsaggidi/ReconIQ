@@ -41,6 +41,15 @@ def build_ai_service(settings: Settings | None = None) -> AIService:
                 timeout=settings.llm_timeout_seconds,
                 max_retries=settings.llm_max_retries,
             )
+        if provider == "gemini":
+            from app.ai.providers.gemini_provider import GeminiAIService
+
+            return GeminiAIService(
+                settings.llm_api_key,
+                settings.model_name,
+                timeout=settings.llm_timeout_seconds,
+                max_retries=settings.llm_max_retries,
+            )
     except Exception as exc:
         logger.warning(
             "LLM provider '%s' unavailable (%s); using the deterministic explainer.",

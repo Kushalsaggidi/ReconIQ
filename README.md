@@ -127,7 +127,7 @@ backend/
     ingestion/          column_map.py, normalizer.py, readers.py, loader.py
     reconciliation/      config.py, matcher.py, rules.py, metrics.py, engine.py  <- the core
     ai/                  base.py, schemas.py, prompts.py, analyzer.py, factory.py
-                        providers/ null_provider.py, anthropic_provider.py, openai_provider.py
+                        providers/ null_provider.py, gemini_provider.py, anthropic_provider.py, openai_provider.py
     services/            job_service.py (orchestration), results_service.py (ORM -> API)
     storage/             db.py, files.py, repository.py (all SQL lives here)
     models/              base.py, entities.py (SQLAlchemy ORM)
@@ -297,10 +297,14 @@ changing a business rule means editing data, not code.
 `LLM_PROVIDER=null` (default) — a deterministic rule-based explainer. No key,
 no network, no cost. Full system works end-to-end on this.
 
-`LLM_PROVIDER=anthropic`, `MODEL_NAME=claude-sonnet-4-5` — recommended for the
-real demo. Set `LLM_API_KEY` from console.anthropic.com. Sonnet is the right
-tier here: this is short structured classification, not deep reasoning, so
-Opus would just cost more for no benefit.
+`LLM_PROVIDER=gemini`, `MODEL_NAME=gemini-3.5-flash-lite` — recommended for the
+demo. Get a free key at https://aistudio.google.com/apikey and set
+`LLM_API_KEY`. Gemini's free tier is generous enough to run this end to end at
+no cost, and this is short structured classification, not deep reasoning, so
+Flash is the right tier.
+
+`LLM_PROVIDER=anthropic`, `MODEL_NAME=claude-sonnet-4-5` is also implemented,
+if you'd rather use an Anthropic key (console.anthropic.com).
 
 `LLM_PROVIDER=openai` is also implemented if you'd rather use an OpenAI key.
 
@@ -335,7 +339,7 @@ See `.env.example` for the full list. Key ones:
 | `DATABASE_URL` | `sqlite:///./data/recon.db` | Postgres-compatible; set to `postgresql+psycopg://...` for shared environments |
 | `BATCH_SIZE` | `10000` | Engine + ingestion chunk size |
 | `ROUNDING_TOLERANCE_MINOR` | `100` (₹1.00) | Sub-tolerance residuals classify as rounding, not partial payment |
-| `LLM_PROVIDER` | `null` | `null` \| `anthropic` \| `openai` |
+| `LLM_PROVIDER` | `null` | `null` \| `gemini` \| `anthropic` \| `openai` |
 | `AI_MAX_EXCEPTIONS_PER_JOB` | `500` | Hard cap on exceptions sent to the model per job |
 | `CORS_ORIGINS` | localhost:3000,5173,8080 | Add your Lovable/Next.js origin here |
 

@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     default_currency: str = "INR"
 
     # --- LLM -------------------------------------------------------------
-    llm_provider: Literal["null", "anthropic", "openai"] = "null"
+    llm_provider: Literal["null", "anthropic", "openai", "gemini"] = "null"
     llm_api_key: str = ""
     model_name: str = "claude-sonnet-4-5"
     llm_timeout_seconds: float = 30.0
