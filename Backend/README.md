@@ -454,6 +454,11 @@ changing a business rule means editing data, not code.
 
 ## The AI layer's guarantees
 
+PayRecon runs on **Google Gemini** (`gemini-3.5-flash-lite`) — fast and cheap
+enough to explain every exception in a batch, not just a sample, on Google's
+free tier. Get a key at https://aistudio.google.com/apikey and set
+`LLM_PROVIDER=gemini` + `LLM_API_KEY` (see [Configuration](#configuration)).
+
 1. **Never fails a job.** Timeout, bad JSON, missing key, provider outage — all
    caught in `app/ai/analyzer.py`; affected exceptions are marked
    `ai_status: failed`, the deterministic result is untouched.
@@ -467,21 +472,14 @@ changing a business rule means editing data, not code.
    batched `AI_BATCH_SIZE` (default 20) per request. A whole dataset is never
    sent to a model.
 
-### Choosing a provider
+### Provider abstraction
 
-`LLM_PROVIDER=null` (default) — a deterministic rule-based explainer. No key,
-no network, no cost. Full system works end-to-end on this.
-
-`LLM_PROVIDER=gemini`, `MODEL_NAME=gemini-3.5-flash-lite` — recommended for the
-demo. Get a free key at https://aistudio.google.com/apikey and set
-`LLM_API_KEY`. Gemini's free tier is generous enough to run this end to end at
-no cost, and this is short structured classification, not deep reasoning, so
-Flash is the right tier.
-
-`LLM_PROVIDER=anthropic`, `MODEL_NAME=claude-sonnet-4-5` is also implemented,
-if you'd rather use an Anthropic key (console.anthropic.com).
-
-`LLM_PROVIDER=openai` is also implemented if you'd rather use an OpenAI key.
+The AI layer sits behind a single `AIService` interface, so Gemini isn't a
+hardcoded dependency — Anthropic and OpenAI implementations exist in
+`app/ai/providers/` behind the same contract, and `LLM_PROVIDER=null` runs a
+deterministic rule-based explainer with no network call, for offline
+development. Switching providers is a config change, not a code change; this
+deployment runs on Gemini.
 
 ---
 
@@ -514,7 +512,9 @@ See `.env.example` for the full list. Key ones:
 | `DATABASE_URL` | `sqlite:///./data/recon.db` | Postgres-compatible; set to `postgresql+psycopg://...` for shared environments |
 | `BATCH_SIZE` | `10000` | Engine + ingestion chunk size |
 | `ROUNDING_TOLERANCE_MINOR` | `100` (₹1.00) | Sub-tolerance residuals classify as rounding, not partial payment |
-| `LLM_PROVIDER` | `null` | `null` \| `gemini` \| `anthropic` \| `openai` |
+| `LLM_PROVIDER` | `null` | Set to `gemini` for real AI explanations (`anthropic`/`openai` also implemented) |
+| `LLM_API_KEY` | *(empty)* | Free Gemini key from https://aistudio.google.com/apikey |
+| `MODEL_NAME` | `claude-sonnet-4-5` | Set to `gemini-3.5-flash-lite` when `LLM_PROVIDER=gemini` |
 | `AI_MAX_EXCEPTIONS_PER_JOB` | `500` | Hard cap on exceptions sent to the model per job |
 | `CORS_ORIGINS` | localhost:3000,5173,8080 | Add your Lovable/Next.js origin here |
 
