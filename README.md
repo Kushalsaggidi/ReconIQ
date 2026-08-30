@@ -13,6 +13,26 @@ can never fail a job or change a number.
 
 ---
 
+## 📊 Results at a glance
+
+Real numbers from this repo — a demo batch run end to end on live Gemini,
+and the benchmark script run at every scale from 100 to 1,000,000 records.
+
+| Metric | Value |
+|---|---|
+| Records processed (demo batch) | 1,007 |
+| Match rate | 90.86% |
+| Exceptions / unresolved | 71 / 21 (92 sent for AI review) |
+| AI coverage | 92 / 92 exceptions classified by Gemini (100%, 0 failures) |
+| Throughput (deterministic engine) | 1.2k rows/s at 100 records → 10.6k rows/s at 100k |
+| Largest verified run | 1,000,000 records in 97.25s (~10.3k rows/s) |
+| Automated tests | 117, all passing |
+
+See [Performance & scalability](#performance--scalability) and
+[Validation & proof](#validation--proof) for how these were measured.
+
+---
+
 ## Why PayRecon is different
 
 * **Numbers are never AI-generated.** Every rupee on screen comes from
@@ -178,9 +198,12 @@ model at all.
 
 ## AI grounding & trust
 
-PayRecon runs on **Google Gemini** (`gemini-3.5-flash-lite`) — fast and cheap
-enough to explain every exception in a batch, not just a sample, on Google's
-free tier.
+PayRecon runs on **Google Gemini** (`gemini-3.5-flash-lite`). Google's free
+tier needs no credit card and comfortably covers demo-scale traffic like
+this (Google no longer publishes fixed quotas — check current limits for
+your key in AI Studio); beyond that, the model is priced at $0.30 / 1M input
+tokens and $2.50 / 1M output tokens, cheap enough to explain every exception
+in a batch rather than sampling a few.
 
 1. **Never fails a job.** Timeout, bad JSON, missing key, provider outage —
    all caught in `app/ai/analyzer.py`; affected exceptions are marked
@@ -288,20 +311,29 @@ parse boundary, quantised immediately. Floats never touch a balance.
   `test_on_batch_sink_receives_every_record_without_collecting`.
 * **Metrics are an O(1)-memory accumulator**, folded one outcome at a time.
 
-Measured with `scripts/benchmark.py` at 100 / 1k / 10k / 100k / 1M records —
-throughput *increases* from 1.6k rows/s at 100 records to ~9.5k rows/s at
-100k (fixed engine setup cost amortises), with no quadratic blow-up as
-volume grows.
+Measured with `scripts/benchmark.py` on this machine:
+
+| Records | Throughput | Total time | Memory |
+|---:|---:|---:|---:|
+| 100 | 1,203 rows/s | 0.08s | 1.7 MB |
+| 1,000 | 5,802 rows/s | 0.17s | 5.1 MB |
+| 10,000 | 10,122 rows/s | 0.99s | 17.5 MB |
+| 100,000 | 10,598 rows/s | 9.50s | 156.8 MB |
+| 1,000,000 | 10,354 rows/s | 97.25s | 1,548.4 MB |
+
+Throughput *increases* from ~1.2k rows/s at 100 records to ~10.6k rows/s at
+100k (fixed engine setup cost amortises) and holds at ~10.3k rows/s even at
+one million records — no quadratic blow-up as volume grows.
 
 ---
 
 ## Validation & proof
 
-* **88 automated tests** covering the 7 required reconciliation scenarios,
-  ingestion edge cases, the AI grounding contract, and a full API
-  end-to-end flow:
+* **117 automated tests**, all passing, covering the 7 required
+  reconciliation scenarios, ingestion edge cases, the AI grounding contract,
+  and a full API end-to-end flow:
   ```bash
-  pytest                                              # all 88
+  pytest                                              # all 117
   pytest -v tests/test_reconciliation_scenarios.py    # the 7 required scenarios
   ```
 * **The AI grounding guarantee is unit-tested, not just documented.** A

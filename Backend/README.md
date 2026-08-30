@@ -157,7 +157,7 @@ curl http://localhost:8000/api/reconciliation/RCN-.../audit
 ### Run tests
 
 ```bash
-pytest                    # 88 tests: scenarios, ingestion, AI layer, full API flow
+pytest                    # 117 tests: scenarios, ingestion, AI layer, full API flow
 pytest -v tests/test_reconciliation_scenarios.py   # the 7 required scenarios + matching rules
 ```
 
@@ -169,9 +169,19 @@ python scripts/benchmark.py --sizes 1000000 --keep   # 1M, keep the generated CS
 ```
 
 Measures ingest + reconcile time, throughput and memory at each size. Confirms
-the join is O(n): on this machine, throughput *increases* from 1.6k rows/s at
-100 records to ~9.5k rows/s at 100k (fixed engine setup cost amortises), with
-no quadratic blow-up.
+the join is O(n) — measured on this machine:
+
+| Records | Throughput | Total time | Memory |
+|---:|---:|---:|---:|
+| 100 | 1,203 rows/s | 0.08s | 1.7 MB |
+| 1,000 | 5,802 rows/s | 0.17s | 5.1 MB |
+| 10,000 | 10,122 rows/s | 0.99s | 17.5 MB |
+| 100,000 | 10,598 rows/s | 9.50s | 156.8 MB |
+| 1,000,000 | 10,354 rows/s | 97.25s | 1,548.4 MB |
+
+Throughput *increases* from ~1.2k rows/s at 100 records to ~10.6k rows/s at
+100k (fixed engine setup cost amortises) and holds at ~10.3k rows/s even at
+one million records — no quadratic blow-up as volume grows.
 
 ---
 
