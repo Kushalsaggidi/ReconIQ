@@ -1,5 +1,10 @@
 # PayRecon
 
+[![CI](https://github.com/Kushalsaggidi/ReconPay/actions/workflows/ci.yml/badge.svg)](https://github.com/Kushalsaggidi/ReconPay/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+![Node 20](https://img.shields.io/badge/node-20-339933)
+![Tests](https://img.shields.io/badge/tests-117%20passing-brightgreen)
+
 AI-powered settlement reconciliation built for finance teams.
 
 Reconcile financial records. Surface exceptions. Explain what happened.
@@ -16,6 +21,7 @@ to millions without rewriting the core logic.
 [Architecture](#architecture) · [AI Trust](#ai-trust--grounding) ·
 [Performance](#performance--scalability) ·
 [Engineering](#key-engineering-decisions) ·
+[Security](#security--reliability) ·
 [Validation](#validation--proof) · [Setup](#setup) ·
 [Benchmark](#performance--scalability)
 
@@ -426,6 +432,25 @@ million records — without quadratic blow-up.
 * **Ingestion never silently drops a row.** Every rejected row is surfaced
   with its dataset, row number, column, and raw value — a bad file fails
   loudly, not quietly.
+
+---
+
+## Security & Reliability
+
+Full detail in [SECURITY.md](SECURITY.md). The short version:
+
+* **Path-safe uploads.** Filenames are reduced to a safe stem and every
+  resolved path is asserted to sit inside the upload root
+  (`app/storage/files.py::LocalFileStore`), so a crafted `../../` filename
+  cannot escape the upload directory.
+* **Size- and type-checked at the door.** Every upload is checked against an
+  extension allowlist and a 512 MiB cap before it's parsed.
+* **AI failure is contained.** A provider timeout, outage, or bad response
+  marks the affected exception `ai_status: failed` — it never fails the job
+  or touches the deterministic result (`tests/test_ai_layer.py`).
+* **No auth yet.** This is the single biggest gap before this runs anywhere
+  but a local or judged demo — tracked honestly in [MVP Scope](#whats-deliberately-not-built-mvp-scope)
+  rather than glossed over.
 
 ---
 

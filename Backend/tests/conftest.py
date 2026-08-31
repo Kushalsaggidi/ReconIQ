@@ -6,8 +6,18 @@ tests never see each other's rows and can run in any order.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterator
+
+# Force the deterministic null AI provider before any app module reads
+# settings. A developer's local .env may have LLM_PROVIDER=gemini with a
+# real key -- without this, `pytest` would silently make live, billed API
+# calls and become flaky/slow depending on network and quota. Individual
+# tests construct a specific AIService directly (see test_ai_layer.py) when
+# they need to test provider behavior, so this only affects tests that go
+# through the real factory (e.g. the API e2e flow).
+os.environ["LLM_PROVIDER"] = "null"
 
 import pytest
 
