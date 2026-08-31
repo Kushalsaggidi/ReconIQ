@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # --- LLM -------------------------------------------------------------
     llm_provider: Literal["null", "anthropic", "openai", "gemini"] = "null"
     llm_api_key: str = ""
-    model_name: str = "claude-sonnet-4-5"
+    model_name: str = "gemini-3.5-flash-lite"
     llm_timeout_seconds: float = 30.0
     llm_max_retries: int = 2
     #: Hard ceiling on exceptions sent to the LLM per job. Protects cost and

@@ -1,39 +1,82 @@
-# PayRecon — AI-Powered Settlement Reconciliation Agent
+# PayRecon
 
-A deterministic three-way settlement reconciliation engine (Orders ↔ Razorpay
-Settlements ↔ Bank Statement) with Google Gemini as an advisory AI layer for
-exception classification. Built for a Razorpay AI hackathon; designed to scale
-from hundreds of records to millions without rewriting the core logic.
+AI-powered settlement reconciliation built for finance teams.
 
-**The one rule everything else follows:** Python computes every financial
-figure — matching, joins, fees, tax, refunds, variance, all metrics. Gemini
-only classifies and explains exceptions that the deterministic engine already
-computed. It never does arithmetic, never matches records, and a failure in it
-can never fail a job or change a number.
+Reconcile financial records. Surface exceptions. Explain what happened.
+Know what needs a human.
 
----
+> **AI can explain a discrepancy. It cannot create one.**
 
-## 📊 Results at a glance
+A deterministic three-way settlement reconciliation engine (Orders ↔ Payment
+Gateway Settlements ↔ Bank Statement) with Google Gemini as an advisory AI
+layer for exception classification — built to scale from hundreds of records
+to millions without rewriting the core logic.
 
-Real numbers from this repo — a demo batch run end to end on live Gemini,
-and the benchmark script run at every scale from 100 to 1,000,000 records.
-
-| Metric | Value |
-|---|---|
-| Records processed (demo batch) | 1,007 |
-| Match rate | 90.86% |
-| Exceptions / unresolved | 71 / 21 (92 sent for AI review) |
-| AI coverage | 92 / 92 exceptions classified by Gemini (100%, 0 failures) |
-| Throughput (deterministic engine) | 1.2k rows/s at 100 records → 10.6k rows/s at 100k |
-| Largest verified run | 1,000,000 records in 97.25s (~10.3k rows/s) |
-| Automated tests | 117, all passing |
-
-See [Performance & scalability](#performance--scalability) and
-[Validation & proof](#validation--proof) for how these were measured.
+[Product Tour](#product-tour) · [Results](#results-at-a-glance) ·
+[Architecture](#architecture) · [AI Trust](#ai-trust--grounding) ·
+[Performance](#performance--scalability) ·
+[Engineering](#key-engineering-decisions) ·
+[Validation](#validation--proof) · [Setup](#setup) ·
+[Benchmark](#performance--scalability)
 
 ---
 
-## Why PayRecon is different
+## The Problem
+
+One payment. Three separate financial records: an **Order**, a **Payment
+Gateway Settlement**, and a **Bank Credit**. The reconciliation question is
+always the same — do these three records agree?
+
+Settlement reconciliation is often a spreadsheet-heavy process: analysts
+manually compare orders against payment-gateway settlements and bank credits,
+investigate discrepancies, and track exceptions row by row. This becomes
+slow, error-prone, and increasingly difficult to scale as transaction volumes
+grow.
+
+<img src="docs/assets/the_problem.png" width="720" alt="Three records, one payment — manual reconciliation is slow, repetitive, and error-prone">
+
+---
+
+## What PayRecon Does
+
+Give PayRecon three financial sources — Orders, Settlements, and a Bank
+Statement — and it reconciles the numbers deterministically, using AI only
+to explain the exceptions.
+
+The pipeline produces:
+
+* Matched records and exceptions, computed with no AI involvement
+* Deterministic exception categories (rounding, refund, fee/tax, partial
+  payment, orphan, unresolved)
+* An AI-generated classification and plain-English explanation for each
+  exception that needs one
+* A `requiresHumanReview` signal for anything the engine or the AI can't
+  confidently close
+* An append-only audit trail of every step, attributed to the layer that
+  performed it
+
+<img src="docs/assets/we_built.png" width="720" alt="Three files in, deterministic engine, AI explanation, answers out">
+
+---
+
+## Why This Was Hard
+
+Reconciliation is not a join between three CSVs. The engine has to handle:
+inconsistent file formats (CSV/XLSX/XLS/JSON) and column layouts, monetary
+precision (no floats near a balance), date and ID normalization (Excel
+turning `123456` into `123456.0`), missing and duplicate settlements, orphan
+settlements, refunds, fees, tax, partial payments, rounding residuals, and
+malformed cells — at scale, from 100 rows to 1,000,000, and with an AI layer
+in the loop that has to be constrained, validated, and allowed to fail
+without taking the reconciliation down with it.
+
+<img src="docs/assets/why_was_it_hard.png" width="720" alt="Scale, messy real-world data, and AI trust: the three engineering pressure points">
+
+---
+
+## Why PayRecon is Different
+
+> **Python calculates. AI explains. Humans decide.**
 
 * **Numbers are never AI-generated.** Every rupee on screen comes from
   deterministic Python. Gemini's explanations are structurally incapable of
@@ -41,19 +84,20 @@ See [Performance & scalability](#performance--scalability) and
   rejects any number not present in the supplied facts, in code, not just by
   prompt instruction.
 * **Built for scale, not a demo.** Hash-indexed O(n) joins, chunked streaming
-  ingestion, O(1)-memory metrics — measured end to end from 100 to 1,000,000
-  records (see [Performance & Scalability](#performance--scalability)).
+  ingestion, an O(1)-memory metrics accumulator — measured end to end from
+  100 to 1,000,000 records (see [Performance & Scalability](#performance--scalability)).
 * **Human review is a first-class outcome, not a bug.** When no record
   explains a variance, PayRecon says so honestly, flags it, and stops —
   instead of guessing a plausible-sounding cause.
-* **Audit-ready by default.** Every step is logged and attributed to the
-  layer that performed it — Engine or AI Analyst — and sealed once a report
-  is generated. That's a compliance requirement most reconciliation demos
-  bolt on later; here it's a byproduct of how the pipeline is built.
+* **Audit-ready by construction.** Every step is logged and attributed to
+  the layer that performed it — Engine or AI Analyst — and sealed once a
+  report is generated.
+
+> **AI can explain a discrepancy. It cannot create one.**
 
 ---
 
-## Product tour
+## Product Tour
 
 <table>
 <tr>
@@ -69,7 +113,7 @@ with one click to load the bundled demo dataset.
 
 **New Reconciliation**
 Drop in Orders + Settlements (Bank Statement optional); the five-stage
-pipeline typically completes in under 15 seconds.
+pipeline processes the bundled demo dataset in seconds.
 
 <img src="docs/screenshots/02-new-reconciliation.png" width="420" alt="New reconciliation upload screen">
 </td>
@@ -106,7 +150,7 @@ treasury analyst to work through.
 
 **Exception detail — financial comparison**
 Expected vs. actual vs. difference, and the full variance decomposition —
-computed by the engine, labelled as such.
+computed by the deterministic engine, labelled as such.
 
 <img src="docs/screenshots/06-exception-detail-financial.png" width="420" alt="Exception detail: financial comparison">
 </td>
@@ -115,8 +159,8 @@ computed by the engine, labelled as such.
 <td width="50%" valign="top">
 
 **Exception detail — AI analysis**
-Gemini's classification, confidence, and plain-English explanation — visibly
-separated from the engine's numbers, never blended with them.
+Gemini's classification and plain-English explanation — visibly separated
+from the engine's numbers, never blended with them.
 
 <img src="docs/screenshots/07-exception-detail-ai-analysis.png" width="420" alt="Exception detail: AI analysis">
 </td>
@@ -150,85 +194,34 @@ events (classification), each with its own attribution.
 
 ---
 
-## Business impact
+## Results at a Glance
 
-Settlement reconciliation today is usually a spreadsheet exercise: an analyst
-manually diffs orders against gateway settlements against bank credits,
-row by row. It's slow, error-prone, and it doesn't scale past a few thousand
-rows a day without adding headcount.
+Real numbers from this repo — a demo batch run end to end on live Gemini,
+and the benchmark script run at every scale from 100 to 1,000,000 records.
 
-* **The deterministic 90% is instant and exact.** Matching, variance
-  computation, and exception bucketing happen in milliseconds — a treasury
-  team's time goes only to the genuinely ambiguous cases, not the clean
-  matches.
-* **AI removes the write-up bottleneck, not the judgment.** Instead of an
-  analyst reading each exception and typing a note from scratch, Gemini
-  drafts the explanation and recommended action in plain English. A human
-  still makes the call — they start from a first draft, not a blank cell.
-* **Every batch is audit-ready the moment it finishes.** The sealed,
-  append-only audit trail means there's no separate reporting step before a
-  compliance review — it already exists.
-* **It's exactly as scalable as the ledger it's watching.** The same code
-  path that reconciles 100 records is benchmarked at 1,000,000 — there's no
-  "the demo works, production needs a rewrite" gap.
+<img src="docs/assets/results.png" width="720" alt="Results at a glance: 1,007 records, 90.86% match rate, 92/92 AI classifications, 117 tests passing">
 
----
+| Metric | Value |
+|---|---|
+| Records processed (demo batch) | 1,007 |
+| Match rate | 90.86% |
+| Exceptions / unresolved | 71 / 21 (92 sent for AI review) |
+| AI coverage | 92 / 92 exceptions classified by Gemini (100%, 0 failures) |
+| Throughput (deterministic engine) | 1.2k rows/s at 100 records → 10.6k rows/s at 100k |
+| Largest verified run | 1,000,000 records in 97.25s (~10.3k rows/s) |
+| Automated tests | 117, all passing |
 
-## Why AI?
-
-The deterministic engine already computes the correct number for every
-transaction — so why involve a model at all? Two things a rules engine is
-structurally bad at, which is exactly where Gemini is used and nowhere else:
-
-1. **Writing a clear, varied explanation for a human, at volume.** A real
-   batch can have dozens or hundreds of exceptions. Having an analyst read
-   each one and write a note doesn't scale; having a model draft that note —
-   grounded in the same facts, never inventing a number — does.
-2. **Judgment calls where the deterministic signal is inconclusive.**
-   "Does this look like a delayed refund or a duplicate settlement" is a
-   pattern-matching question, not an arithmetic one. Gemini classifies and
-   suggests; a human still decides.
-
-What AI is **never** used for: matching records, computing a figure, or
-deciding whether something is reconciled. Those stay 100% deterministic, so
-every number in this system is defensible in an audit without reference to a
-model at all.
-
----
-
-## AI grounding & trust
-
-PayRecon runs on **Google Gemini** (`gemini-3.5-flash-lite`). Google's free
-tier needs no credit card and comfortably covers demo-scale traffic like
-this (Google no longer publishes fixed quotas — check current limits for
-your key in AI Studio); beyond that, the model is priced at $0.30 / 1M input
-tokens and $2.50 / 1M output tokens, cheap enough to explain every exception
-in a batch rather than sampling a few.
-
-1. **Never fails a job.** Timeout, bad JSON, missing key, provider outage —
-   all caught in `app/ai/analyzer.py`; affected exceptions are marked
-   `ai_status: failed` and the deterministic result is untouched.
-2. **Cannot cite an invented number.** `AiVerdict.assert_grounded()` rejects
-   any explanation containing a figure not present in the supplied facts —
-   enforced in code, not requested in a prompt.
-3. **Never marks anything resolved.** Gemini only sets
-   `requiresHumanReview`; it can add the flag, never clear it — the union of
-   the engine's judgement and the model's, not a replacement for either.
-4. **Bounded cost.** Only `ExceptionRecord` rows are sent, capped at
-   `AI_MAX_EXCEPTIONS_PER_JOB` (default 500, largest-`unexplained`-first),
-   batched `AI_BATCH_SIZE` (default 20) per request. A whole dataset is never
-   sent to a model.
-
-The AI layer sits behind a single `AIService` interface, so this isn't
-Gemini-specific by accident — Anthropic and OpenAI implementations exist in
-`app/ai/providers/` behind the same contract, and a deterministic rule-based
-explainer (`LLM_PROVIDER=null`) lets the whole pipeline run with no network
-call at all, for offline development. Gemini is what this deployment
-actually runs on.
+Throughput increases from ~1.2k rows/s at 100 records to ~10.6k rows/s at
+100k as fixed engine setup cost amortises, then holds at ~10.3k rows/s even
+at one million records — no quadratic blow-up as volume grows. See
+[Performance & Scalability](#performance--scalability) and
+[Validation & Proof](#validation--proof) for how these were measured.
 
 ---
 
 ## Architecture
+
+<img src="docs/assets/arch.png" width="720" alt="PayRecon architecture: frontend, backend, ingestion, deterministic reconciliation engine, AI explanation, validation, audit">
 
 ```
 Upload (CSV / XLSX / XLS / JSON)
@@ -264,43 +257,108 @@ AUDIT TRAIL      app/models/entities.py::AuditEvent   append-only narrative
 REST API         app/api/            FastAPI, camelCase + paise, paginated
 ```
 
-Money is **integer minor units (paise)** end to end — `Decimal` only at the CSV
-parse boundary, quantised immediately. Floats never touch a balance.
+**Deterministic Core** — matching, arithmetic, financial values,
+reconciliation status, exception rules, metrics. **AI Layer** —
+classification and natural-language explanation only, invoked after the
+Deterministic Core finishes. **Validation** — checks the AI response against
+the supplied facts, rejects unsupported figures. **Audit** — records both
+Engine and AI events with attribution.
+
+> **The AI never controls the financial computation.**
+
+Money is **integer minor units (paise)** end to end — `Decimal` only at the
+CSV parse boundary, quantised immediately. Floats never touch a balance.
 
 ---
 
-## Key engineering decisions
+## Business Impact
 
-* **Money as integer paise, everywhere.** Eliminates float rounding bugs at
-  the source; `Decimal` exists only momentarily, at the CSV parse boundary.
-* **Hash-indexed matching, not nested loops.** `MatchIndex`
-  (`app/reconciliation/matcher.py`) builds the join index once; every lookup
-  is O(1) from the start — not a later optimization.
-* **The engine has zero framework dependencies.** `app/reconciliation/`
-  doesn't know FastAPI, SQLAlchemy, or an LLM exist. It's directly testable
-  and importable in a notebook to reconcile three lists of records — this is
-  exactly what the test suite and benchmark exercise.
-* **AI is a swappable interface, not a hardcoded call.** One `AIService`
-  contract; each provider (Gemini, Anthropic, OpenAI, or the deterministic
-  fallback) is a single file. Switching models is a config change, not a
-  code change.
-* **Async by contract from day one.** `POST /run` returns `202` immediately;
-  a `ThreadPoolExecutor`-backed worker runs the pipeline today, but the
-  `JobRunner` seam is exactly where Celery/RQ/SQS slots in without touching
-  the API contract.
-* **Pagination is not optional.** Every collection endpoint caps at
-  `MAX_PAGE_SIZE = 500` — there is no route that can return a million-row
-  response.
-* **Ingestion never silently drops a row.** Every rejected row is surfaced
-  with its dataset, row number, column, and raw value — a bad file fails
-  loudly, not quietly.
+Settlement reconciliation is often a spreadsheet-heavy process: analysts
+manually compare orders against payment-gateway settlements and bank credits,
+investigate discrepancies, and track exceptions row by row. This becomes
+slow, error-prone, and increasingly difficult to scale as transaction volumes
+grow.
+
+* **~90% of records can be resolved deterministically.** Matching, variance
+  computation, and exception bucketing require no LLM involvement, allowing
+  analyst attention to focus on genuinely ambiguous cases.
+* **AI removes the write-up bottleneck, not the judgment.** Instead of an
+  analyst reading each exception and typing a note from scratch, Gemini
+  drafts the explanation and recommended action in plain English. A human
+  still makes the call — they start from a first draft, not a blank cell.
+* **Every batch produces an audit trail automatically.** The sealed,
+  append-only audit trail captures reconciliation and AI events as part of
+  processing, eliminating the need to reconstruct what happened later.
+* **The reconciliation path scales with the dataset.** The same
+  deterministic code path used for 100-record demos has been benchmarked on
+  1,000,000 records, processing them in ~97 seconds (~10.3k records/sec).
 
 ---
 
-## Performance & scalability
+## Why AI?
 
-* **Matching is O(n).** `MatchIndex` builds hash maps once; every lookup is
-  O(1). Never a nested loop over datasets.
+The deterministic engine already computes the correct number for every
+transaction — so why involve a model at all? AI is deliberately restricted
+to the exception layer, for two things a rules engine is structurally bad
+at:
+
+1. **Writing a clear, varied explanation for a human, at volume.** A real
+   batch can have dozens or hundreds of exceptions. Having an analyst read
+   each one and write a note doesn't scale; having a model draft that note —
+   grounded in the same facts, never inventing a number — does.
+2. **Classification where deterministic rules cannot confidently explain the
+   exception.** "Does this look like a delayed refund or a duplicate
+   settlement" is a pattern-matching question, not an arithmetic one. Gemini
+   suggests a classification; a human still decides.
+
+DETERMINISTIC ENGINE → financial source of truth. GEMINI → explanation and
+classification assistant. HUMAN → final judgment where required.
+
+What AI is **never** used for: matching records, computing a figure,
+determining a financial reconciliation result, or independently resolving an
+exception. Those stay 100% deterministic, so every number in this system is
+defensible in an audit without reference to a model at all.
+
+---
+
+## AI Trust & Grounding
+
+PayRecon uses Google Gemini for exception analysis. API availability,
+quotas, and pricing vary by model and account tier, so deployment-specific
+limits should be checked against Google's current documentation.
+
+1. **Never fails a job.** Timeout, bad JSON, missing key, provider outage —
+   all caught in `app/ai/analyzer.py`; affected exceptions are marked
+   `ai_status: failed` and the deterministic result is untouched.
+2. **Cannot cite an invented number.** The application validates AI output
+   against the deterministic engine's supplied facts — `AiVerdict.assert_grounded()`
+   rejects any explanation containing a figure not present in those facts,
+   enforced in code, not requested in a prompt.
+3. **Never marks anything resolved.** Gemini can set or add
+   `requiresHumanReview`, but it cannot clear it — the AI cannot independently
+   resolve a financial exception; a human remains the final authority.
+4. **Bounded cost and scope.** Only `ExceptionRecord` rows are sent, capped
+   at `AI_MAX_EXCEPTIONS_PER_JOB` (default 500, largest-`unexplained`-first),
+   batched `AI_BATCH_SIZE` (default 20) per request. A whole dataset is
+   never sent to a model.
+
+The AI layer sits behind a single `AIService` interface, so this isn't
+Gemini-specific by accident — Anthropic and OpenAI implementations exist in
+`app/ai/providers/` behind the same contract, and a deterministic rule-based
+explainer (`LLM_PROVIDER=null`) lets the whole pipeline run with no network
+call at all, for offline development. Gemini is what this deployment
+actually runs on. Provider capabilities are not identical across
+implementations.
+
+---
+
+## Performance & Scalability
+
+<img src="docs/assets/performance.png" width="720" alt="Performance and scalability: O(n) matching, chunked processing, streaming persistence, O(1)-memory metrics, benchmark table and charts">
+
+* **Hash-indexed matching, not nested loops.** `MatchIndex` builds the join
+  index once, making subsequent record lookups O(1) rather than repeatedly
+  scanning the dataset. Overall matching is O(n).
 * **Chunked, not one-shot.** CSVs stream via `pandas.read_csv(chunksize=...)`;
   the engine's `process_batch` operates on one batch against a prebuilt
   index, so a worker-pool future is a change to the *loop*, not the
@@ -310,10 +368,13 @@ parse boundary, quantised immediately. Floats never touch a balance.
   and never holds the full result set in memory — verified in
   `test_on_batch_sink_receives_every_record_without_collecting`.
 * **Metrics are an O(1)-memory accumulator**, folded one outcome at a time.
+  This does not mean constant *total* memory: chunked ingestion and
+  streaming persistence keep the resident working set small, but the
+  measured peak memory below still grows with dataset size.
 
 Measured with `scripts/benchmark.py` on this machine:
 
-| Records | Throughput | Total time | Memory |
+| Records | Throughput | Total time | Peak memory |
 |---:|---:|---:|---:|
 | 100 | 1,203 rows/s | 0.08s | 1.7 MB |
 | 1,000 | 5,802 rows/s | 0.17s | 5.1 MB |
@@ -321,13 +382,68 @@ Measured with `scripts/benchmark.py` on this machine:
 | 100,000 | 10,598 rows/s | 9.50s | 156.8 MB |
 | 1,000,000 | 10,354 rows/s | 97.25s | 1,548.4 MB |
 
-Throughput *increases* from ~1.2k rows/s at 100 records to ~10.6k rows/s at
-100k (fixed engine setup cost amortises) and holds at ~10.3k rows/s even at
-one million records — no quadratic blow-up as volume grows.
+Throughput rises from ~1.2k rows/s at 100 records to ~10.6k rows/s at 100k as
+fixed setup cost is amortized, then remains around ~10.3k rows/s at one
+million records — without quadratic blow-up.
+
+> **AI latency is separate from reconciliation throughput.** The
+> ~97-second / 1,000,000-record benchmark above measures the deterministic
+> reconciliation engine only. Gemini is invoked after reconciliation
+> completes, and only for exceptions, so end-to-end runtime on a batch with
+> AI enabled additionally depends on the number of exceptions, batching, and
+> Gemini API response latency — none of which is included in the 97.25s
+> figure.
 
 ---
 
-## Validation & proof
+## Key Engineering Decisions
+
+* **Money as integer paise, everywhere.** Eliminates float rounding bugs at
+  the source; `Decimal` exists only momentarily, at the CSV parse boundary.
+* **Hash-indexed matching, not nested loops.** `MatchIndex`
+  (`app/reconciliation/matcher.py`) builds the join index once; subsequent
+  lookups are O(1) instead of repeatedly scanning the dataset.
+* **The engine has zero framework dependencies.** `app/reconciliation/`
+  doesn't know FastAPI, SQLAlchemy, or an LLM exist. It's directly testable
+  and importable in a notebook to reconcile three lists of records — this is
+  exactly what the test suite and benchmark exercise.
+* **AI is a swappable interface, not a hardcoded call.** One `AIService`
+  contract; each provider (Gemini, Anthropic, OpenAI, or the deterministic
+  fallback) is a single file. Switching models is a config change, not a
+  code change.
+* **AI never sits on the financial critical path.** Reconciliation, matching,
+  and monetary calculations complete deterministically before Gemini is
+  invoked for exception analysis. AI latency or failure therefore cannot
+  alter the financial result or block the core reconciliation engine.
+* **Async by contract from day one.** `POST /run` returns `202` immediately;
+  a `ThreadPoolExecutor`-backed worker runs the pipeline today. The
+  `JobRunner` boundary provides a clean seam for replacing the current
+  worker with Celery, RQ, SQS, or another queue without changing the API
+  contract.
+* **Pagination is not optional.** Every collection endpoint caps at
+  `MAX_PAGE_SIZE = 500` — there is no route that can return a million-row
+  response.
+* **Ingestion never silently drops a row.** Every rejected row is surfaced
+  with its dataset, row number, column, and raw value — a bad file fails
+  loudly, not quietly.
+
+---
+
+## Messy Real-World Data
+
+The engine accepts CSV, XLSX, XLS, and JSON, with automatic format and
+dataset-type detection and flexible column mapping. Ingestion normalizes
+currency, date, and ID formats — including Excel-corrupted numeric IDs like
+`123456.0` — and validates every row.
+
+Unreadable data is flagged, not silently dropped: every rejected row is
+surfaced with its dataset, row number, column, and raw value. Silent data
+loss can produce a misleading reconciliation result, so a bad file fails
+loudly instead.
+
+---
+
+## Validation & Proof
 
 * **117 automated tests**, all passing, covering the 7 required
   reconciliation scenarios, ingestion edge cases, the AI grounding contract,
@@ -347,15 +463,18 @@ one million records — no quadratic blow-up as volume grows.
   python scripts/benchmark.py                          # 100 / 1k / 10k / 100k
   python scripts/benchmark.py --sizes 1000000 --keep    # 1M, keep the generated CSVs
   ```
+* **Live Gemini demo evidence.** The 92/92 AI classifications and 0 failures
+  in [Results at a Glance](#results-at-a-glance) are from a demo batch run
+  end to end against the live Gemini API, not prerecorded output.
 
 ---
 
-## Hackathon demo
+## Hackathon Demo
 
 A three-minute walkthrough that shows the full story:
 
-1. **Overview →** click *Try Demo Dataset*. Results land in under 15
-   seconds — point at the KPIs and note none of them came from the AI.
+1. **Overview →** click *Try Demo Dataset*. Point at the KPIs and note none
+   of them came from the AI.
 2. **New Reconciliation →** show the five-stage pipeline (Upload → Validate
    → Reconcile → Analyze exceptions → Generate report) so the audience sees
    where in the flow AI participates — one stage out of five.
@@ -371,10 +490,10 @@ A three-minute walkthrough that shows the full story:
 
 ---
 
-## Folder structure
+## Repository Structure
 
 ```
-backend/
+Backend/
   app/
     api/routes/        reconciliation.py, health.py — thin, no business logic
     core/               config, money (Decimal/paise), enums, error taxonomy, logging
@@ -389,8 +508,11 @@ backend/
     models/              base.py, entities.py (SQLAlchemy ORM)
   scripts/              generate_data.py, benchmark.py
   tests/                test_reconciliation_scenarios.py, test_ingestion.py,
-                        test_ai_layer.py, test_api_e2e.py
+                        test_flexible_ingestion.py, test_ai_layer.py, test_api_e2e.py
   data/                 demo/ (generated CSVs), uploads/ (runtime), recon.db (SQLite)
+Frontend/               React app — services/types.ts mirrors the backend's api.py schemas
+docs/screenshots/       Product Tour screenshots
+docs/assets/            README hero/section visuals
 ```
 
 ---
@@ -407,7 +529,7 @@ pip install -r requirements.txt
 copy .env.example .env          # Windows: copy; macOS/Linux: cp
 ```
 
-Set `LLM_PROVIDER=gemini` and `LLM_API_KEY` (a free key from
+Set `LLM_PROVIDER=gemini` and `LLM_API_KEY` (a key from
 https://aistudio.google.com/apikey) to run with real AI explanations — see
 [Configuration](#configuration). Everything else defaults to SQLite and
 needs no further setup.
@@ -454,7 +576,7 @@ curl http://localhost:8000/api/reconciliation/RCN-.../audit
 
 ---
 
-## API reference
+## API Reference
 
 All responses are camelCase with amounts in **integer paise**, matching
 `Frontend/src/services/types.ts` exactly — the frontend's `mockApi` can be
@@ -485,7 +607,7 @@ whenever the failure traces to specific rows.
 
 ---
 
-## The reconciliation rules
+## The Reconciliation Rules
 
 ```
 expected  = settlement.gross_amount  or  order.order_amount
@@ -495,8 +617,8 @@ accounted_for = fee + tax + refund − adjustment      (declared, from the settl
 unexplained   = difference − accounted_for            <- decides the status
 ```
 
-`unexplained == 0` → **MATCHED**. A shortfall the declared fee/tax/refund fully
-explains is matched, not flagged — that's what "reconciled" means to a
+`unexplained == 0` → **MATCHED**. A shortfall the declared fee/tax/refund
+fully explains is matched, not flagged — that's what "reconciled" means to a
 treasury team. Otherwise:
 
 | Condition | Status | Type |
@@ -526,9 +648,10 @@ See `.env.example` for the full list. Key ones:
 | `BATCH_SIZE` | `10000` | Engine + ingestion chunk size |
 | `ROUNDING_TOLERANCE_MINOR` | `100` (₹1.00) | Sub-tolerance residuals classify as rounding, not partial payment |
 | `LLM_PROVIDER` | `null` | Set to `gemini` for real AI explanations (`anthropic`/`openai` also implemented) |
-| `LLM_API_KEY` | *(empty)* | Free Gemini key from https://aistudio.google.com/apikey |
-| `MODEL_NAME` | `claude-sonnet-4-5` | Set to `gemini-3.5-flash-lite` when `LLM_PROVIDER=gemini` |
+| `LLM_API_KEY` | *(empty)* | API key for the configured provider — see https://aistudio.google.com/apikey for Gemini |
+| `MODEL_NAME` | `gemini-3.5-flash-lite` | Override with an Anthropic/OpenAI model id if using those providers |
 | `AI_MAX_EXCEPTIONS_PER_JOB` | `500` | Hard cap on exceptions sent to the model per job |
+| `AI_BATCH_SIZE` | `20` | Exceptions sent to the model per request |
 | `CORS_ORIGINS` | localhost:3000,5173,8080 | Add your frontend's origin here |
 
 Never commit `.env`. Secrets are read from the environment only; the frontend
@@ -536,13 +659,18 @@ never sees `LLM_API_KEY`.
 
 ---
 
-## What's deliberately not built (MVP scope)
+## What's Deliberately Not Built (MVP Scope)
 
-* No distributed task queue — a thread pool is enough for a hackathon; the
-  `JobRunner` seam is where Celery/RQ would slot in.
-* No Alembic migrations — `Base.metadata.create_all()` is fine until the schema
-  needs to change against data someone else depends on.
+* No distributed task queue — a thread pool is used today; the `JobRunner`
+  seam is where Celery/RQ/SQS would slot in.
+* No Alembic migrations — `Base.metadata.create_all()` is fine until the
+  schema needs to change against data someone else depends on.
 * No auth — add it at the FastAPI dependency layer (`Depends(get_db)` is
   already the pattern to extend) before this goes anywhere but a demo.
 * No object storage — `LocalFileStore` is one interface
   (`app/storage/files.py::FileStore`) away from S3/GCS.
+
+This is not a production-ready, enterprise-grade, or compliance-certified
+system — it's a hackathon-scale implementation of a real reconciliation
+problem, with the seams for those next steps left visible rather than
+papered over.
