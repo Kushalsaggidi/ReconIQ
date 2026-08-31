@@ -17,13 +17,53 @@ Gateway Settlements ↔ Bank Statement) with Google Gemini as an advisory AI
 layer for exception classification — built to scale from hundreds of records
 to millions without rewriting the core logic.
 
-[Product Tour](#product-tour) · [Results](#results-at-a-glance) ·
+[See It Work](#see-it-work--60-seconds) · [Product Tour](#product-tour) ·
+[Results](#results-at-a-glance) ·
 [Architecture](#architecture) · [AI Trust](#ai-trust--grounding) ·
 [Performance](#performance--scalability) ·
 [Engineering](#key-engineering-decisions) ·
 [Security](#security--reliability) ·
 [Validation](#validation--proof) · [Setup](#setup) ·
 [Benchmark](#performance--scalability)
+
+---
+
+## See It Work — 60 Seconds
+
+No frontend, no API key, no server to start. Just Python.
+
+```bash
+cd Backend
+pip install -r requirements.txt
+
+python scripts/demo_ai_rejection.py   # the wow moment — watch an invented figure get rejected
+python scripts/quickstart.py          # the full pipeline: upload -> reconcile -> AI -> results, one command
+```
+
+`demo_ai_rejection.py` reconciles one real transaction with the actual engine, then
+runs two AI explanations through the same validation guard every provider (Gemini,
+Anthropic, OpenAI) goes through before a verdict is stored — one grounded in the
+engine's real figures, one with a single invented number:
+
+```
+2. AI explanation grounded in the real figures -> accepted
+   "The bank credited 1,726.40 against an expected 2,000.00, leaving 250.00 unexplained."
+   ACCEPTED -- every number in that sentence came from the facts payload above.
+
+3. AI explanation citing a plausible but invented figure -> rejected
+   "A processing adjustment of 423.45 explains the shortfall between expected and settled amounts."
+   REJECTED -- explanation cites '423.45', which is not among the supplied figures
+```
+
+That's `AiVerdict.assert_grounded()` in [`app/ai/schemas.py`](Backend/app/ai/schemas.py),
+unit-tested in [`tests/test_ai_layer.py`](Backend/tests/test_ai_layer.py) and re-run on
+every commit in [CI](.github/workflows/ci.yml). It isn't a prompt asking the model to
+behave — it's code that rejects an unsupported figure regardless of what any provider
+returns.
+
+`quickstart.py` runs the same upload → reconcile → AI-classify → results flow the API
+exposes (see [Setup](#setup)), against the bundled 1,007-record demo dataset, and prints
+the same numbers as [Results at a Glance](#results-at-a-glance) below.
 
 ---
 
@@ -479,7 +519,10 @@ loudly instead.
   ```
 * **The AI grounding guarantee is unit-tested, not just documented.** A
   verdict citing a figure outside the supplied facts is asserted to be
-  rejected by `assert_grounded()` — see `tests/test_ai_layer.py`.
+  rejected by `assert_grounded()` — see `tests/test_ai_layer.py`. Run it
+  yourself, live, with `python scripts/demo_ai_rejection.py` (see
+  [See It Work](#see-it-work--60-seconds)) — this same script also runs in
+  [CI](.github/workflows/ci.yml) on every push.
 * **The scalability claim is unit-tested, not just benchmarked.**
   `test_on_batch_sink_receives_every_record_without_collecting` verifies the
   engine never buffers the full result set in memory.
@@ -496,22 +539,30 @@ loudly instead.
 
 ## Hackathon Demo
 
-A three-minute walkthrough that shows the full story:
+A five-minute walkthrough built around one exception, not a feature tour:
 
-1. **Overview →** click *Try Demo Dataset*. Point at the KPIs and note none
-   of them came from the AI.
-2. **New Reconciliation →** show the five-stage pipeline (Upload → Validate
-   → Reconcile → Analyze exceptions → Generate report) so the audience sees
-   where in the flow AI participates — one stage out of five.
-3. **Exceptions →** open the category breakdown, then click into one
-   exception. Show the *financial comparison* panel (labelled "computed by
-   the deterministic engine") side by side with the *AI Analysis* panel
-   (labelled "classification and explanation only") — this contrast is the
-   core trust story.
-4. **Audit Logs →** show the event timeline tagged Engine vs. AI Analyst,
-   sealed once the report completes.
-5. **If asked about scale:** cite the 100 → 1,000,000-record benchmark, or
-   run `scripts/benchmark.py` live.
+1. **The discrepancy →** Exceptions → open one record. The *financial
+   comparison* panel (labelled "computed by the deterministic engine") shows
+   what's expected, what actually landed, and what's unexplained — before AI
+   is mentioned at all.
+2. **Deterministic financial truth →** point out that this figure exists
+   because `app/reconciliation/engine.py` ran, full stop. No model has been
+   called yet.
+3. **AI explanation →** the *AI Analysis* panel (labelled "classification and
+   explanation only") shows Gemini's plain-English read of the same
+   exception — visibly separate from the panel above, never blended with it.
+4. **The rejection, live →** run `python scripts/demo_ai_rejection.py` in a
+   terminal. It reconciles a transaction, then feeds two AI explanations
+   through the real validation guard — a grounded one (accepted) and one with
+   a single invented figure (rejected, on screen, in code). This is the moment
+   that proves "AI cannot control financial truth" instead of just claiming
+   it. See [See It Work](#see-it-work--60-seconds).
+5. **Recommended action + audit trail →** back in the UI, the *recommended
+   action* panel, then Audit Logs — the event timeline tagged Engine vs. AI
+   Analyst, sealed once the report completes.
+6. **If asked about scale:** cite the 100 → 1,000,000-record benchmark
+   (deterministic engine only — see [Performance & Scalability](#performance--scalability)),
+   or run `scripts/benchmark.py` live.
 
 ---
 
@@ -531,7 +582,8 @@ Backend/
     services/            job_service.py (orchestration), results_service.py (ORM -> API)
     storage/             db.py, files.py, repository.py (all SQL lives here)
     models/              base.py, entities.py (SQLAlchemy ORM)
-  scripts/              generate_data.py, benchmark.py
+  scripts/              generate_data.py, benchmark.py,
+                        demo_ai_rejection.py (wow-moment demo), quickstart.py (60s e2e run)
   tests/                test_reconciliation_scenarios.py, test_ingestion.py,
                         test_flexible_ingestion.py, test_ai_layer.py, test_api_e2e.py
   data/                 demo/ (generated CSVs), uploads/ (runtime), recon.db (SQLite)
@@ -582,6 +634,14 @@ settlement, a duplicate settlement (ambiguous — refused rather than guessed),
 an orphan settlement, and a handful of malformed cells to exercise validation.
 
 ### Try it end to end
+
+The fastest path — no server, no curl, prints a results summary:
+
+```bash
+python scripts/quickstart.py
+```
+
+Or, to see each step against the real running API:
 
 ```bash
 curl -F "kind=orders"       -F "file=@data/demo/orders.csv"            http://localhost:8000/api/reconciliation/upload
