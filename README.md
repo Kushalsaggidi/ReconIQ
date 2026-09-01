@@ -245,7 +245,7 @@ events (classification), each with its own attribution.
 Real numbers from this repo — a demo batch run end to end on live Gemini,
 and the benchmark script run at every scale from 100 to 1,000,000 records.
 
-<img src="docs/assets/results.png" width="720" alt="Results at a glance: 1,007 records, 90.86% match rate, 92/92 AI classifications, 117 tests passing">
+<img src="docs/assets/results.png" width="720" alt="Results at a glance: throughput benchmark from 1,203 rows/s at 100 records to 10,598 rows/s peak at 100k, holding at 10,354 rows/s at 1M; total time and peak memory scaling to 97.25s / 1,548.4 MB at 1,000,000 records">
 
 | Metric | Value |
 |---|---|
