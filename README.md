@@ -187,116 +187,58 @@ this number relates to (and does not include) Copilot latency.
 
 ## Product Tour
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### 01 — Overview
+The moment a batch finishes: match rate, exception count, and unresolved
+items at a glance, with one click to load the bundled demo dataset. This is
+the starting point for "what happened in this reconciliation."
 
-**Overview**
-Live KPIs — match rate, exceptions, variance — the moment a batch finishes,
-with one click to load the bundled demo dataset.
+<img src="docs/screenshots/01-overview.png" width="720" alt="Overview dashboard showing live reconciliation KPIs">
 
-<img src="docs/screenshots/01-overview.png" width="420" alt="Overview dashboard">
-</td>
-<td width="50%" valign="top">
+### 02 — Exception Queue
+Every unmatched transaction, filterable and searchable by status, type, and
+date. This is where an analyst finds out which transactions actually need
+attention, instead of scanning the full batch row by row.
 
-**New Reconciliation**
-Drop in Orders + Settlements (Bank Statement optional); the five-stage
-pipeline processes the bundled demo dataset in seconds.
+<img src="docs/screenshots/02-exception-queue.png" width="720" alt="Exception queue: searchable, filterable table of unresolved transactions">
 
-<img src="docs/screenshots/02-new-reconciliation.png" width="420" alt="New reconciliation upload screen">
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+### 03 — Financial Comparison
+Expected amount vs. actual settlement vs. difference, with the full variance
+decomposition — fee, tax, refund, unexplained residual — computed entirely
+by the deterministic engine. This is what exactly happened to the money,
+labelled as engine output, not AI output.
 
-**Reconciliation History**
-Every run is retained with its full result set, so a batch can be reopened
-and inspected exactly as it was reported.
+<img src="docs/screenshots/03-financial-comparison.png" width="720" alt="Exception detail: financial comparison and variance decomposition">
 
-<img src="docs/screenshots/03-history.png" width="420" alt="Reconciliation history table">
-</td>
-<td width="50%" valign="top">
+### 04 — AI Analysis
+The Exception Analyst's classification and plain-English explanation of an
+exception the engine has already established — visibly separate from the
+numbers above, and explicit that the model explained the variance rather
+than calculating it.
 
-**Exceptions — breakdown**
-Every record the engine couldn't close on its own, by category. The line
-between "explained by a record" and "needs a human" is drawn by the engine —
-no model ever moves it.
+<img src="docs/screenshots/04-ai-analysis.png" width="720" alt="Exception detail: AI analysis and classification">
 
-<img src="docs/screenshots/04-exceptions.png" width="420" alt="Exception breakdown by category">
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+### 05 — Reconciliation Copilot
+A read-only, grounded Reconciliation Copilot — not a generic chatbot. It
+investigates the active reconciliation using controlled, read-only access to
+ReconIQ's own verified data, so an analyst can ask a natural-language
+question like "which transactions need human review?" and get an answer
+sourced from real tool calls, not the model's own arithmetic or memory.
 
-**Exceptions — queue**
-Every unresolved transaction, filterable and searchable, ready for a
-treasury analyst to work through.
+<img src="docs/screenshots/05-copilot.png" width="720" alt="Reconciliation Copilot answering a grounded, read-only question about the active job">
 
-<img src="docs/screenshots/05-exceptions-table.png" width="420" alt="Exception queue table">
-</td>
-<td width="50%" valign="top">
+### 06 — Recommended Action
+What a human should investigate or do next, paired with an explicit
+reminder that approving or reviewing here makes no financial change —
+reconciliation stays read-only by design.
 
-**Exception detail — financial comparison**
-Expected vs. actual vs. difference, and the full variance decomposition —
-computed by the deterministic engine, labelled as such.
+<img src="docs/screenshots/06-recommended-action.png" width="720" alt="Exception detail: recommended action for a human analyst">
 
-<img src="docs/screenshots/06-exception-detail-financial.png" width="420" alt="Exception detail: financial comparison">
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+### 07 — Audit Trail
+An append-only trail of every step, attributed to the layer that performed
+it — Engine, AI Analyst, or Copilot/tool activity — plus relevant user
+actions, so the full path behind a result can be traced end to end.
 
-**Exception detail — AI analysis**
-The Exception Analyst's classification and plain-English explanation —
-visibly separated from the engine's numbers, never blended with them.
-
-<img src="docs/screenshots/07-exception-detail-ai-analysis.png" width="420" alt="Exception detail: AI analysis">
-</td>
-<td width="50%" valign="top">
-
-**Exception detail — recommended action**
-What a human should do next, plus an explicit reminder that the app never
-posts, adjusts, or reverses anything — reconciliation is read-only by design.
-
-<img src="docs/screenshots/08-exception-detail-recommended-action.png" width="420" alt="Exception detail: recommended action">
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**Ask the Copilot**
-The floating "Ask ReconIQ" launcher, open on this same job — an analyst can
-ask "why is this order unresolved" or "what should I investigate first" and
-get an answer sourced from the same verified data shown in the panels above,
-with a "Read-only" badge and source/tool labels on every reply.
-
-</td>
-<td width="50%" valign="top">
-
-**Audit Logs**
-An append-only trail of every step, tagged by the layer that performed it —
-Engine, AI Analyst, or Copilot.
-
-<img src="docs/screenshots/09-audit-logs.png" width="420" alt="Audit trail">
-</td>
-</tr>
-<tr>
-<td colspan="2" valign="top">
-
-**Audit Logs — event detail**
-Engine events (matching, exception detection) interleaved with AI Analyst
-events (classification) and Copilot events (`COPILOT_QUERY`,
-`COPILOT_VALIDATION_FAILED`, `COPILOT_ERROR`), each with its own attribution.
-
-<img src="docs/screenshots/10-audit-logs-events.png" width="600" alt="Audit trail event list">
-</td>
-</tr>
-</table>
-
-*(No dedicated screenshot exists yet for the Copilot's chat drawer itself —
-the launcher, avatar, and conversation UI described above are real and
-implemented in `Frontend/src/components/copilot/`, but a capture wasn't part
-of this pass.)*
+<img src="docs/screenshots/07-audit-trail.png" width="720" alt="Audit trail: append-only event log attributed by layer">
 
 ---
 
