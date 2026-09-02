@@ -1,4 +1,4 @@
-# PayRecon — AI-Powered Settlement Reconciliation Agent (Backend)
+# ReconIQ — AI-Powered Settlement Reconciliation Agent (Backend)
 
 A deterministic three-way settlement reconciliation engine (Orders ↔ Razorpay
 Settlements ↔ Bank Statement) with an advisory AI layer for exception
@@ -464,7 +464,7 @@ changing a business rule means editing data, not code.
 
 ## The AI layer's guarantees
 
-PayRecon runs on **Google Gemini** (`gemini-3.5-flash-lite`) — fast and cheap
+ReconIQ runs on **Google Gemini** (`gemini-3.5-flash-lite`) — fast and cheap
 enough to explain every exception in a batch, not just a sample, on Google's
 free tier. Get a key at https://aistudio.google.com/apikey and set
 `LLM_PROVIDER=gemini` + `LLM_API_KEY` (see [Configuration](#configuration)).

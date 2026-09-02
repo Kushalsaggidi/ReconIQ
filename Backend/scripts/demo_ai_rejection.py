@@ -94,7 +94,7 @@ def main() -> None:
     logging.getLogger("app.reconciliation.engine").setLevel(logging.WARNING)
     facts = build_real_exception()
 
-    print(f"\n{BOLD}PayRecon -- financial truth vs. AI explanation{RESET}\n")
+    print(f"\n{BOLD}ReconIQ -- financial truth vs. AI explanation{RESET}\n")
     rule("=")
     print(f"{BOLD}1. Deterministic engine output (no AI involved){RESET}")
     print(f"   Order {facts.order_id} / Payment {facts.payment_id}")

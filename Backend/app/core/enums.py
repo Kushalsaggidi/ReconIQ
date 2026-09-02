@@ -143,3 +143,8 @@ class AuditEventType(str, Enum):
     RECONCILIATION_COMPLETED = "RECONCILIATION_COMPLETED"
     RECONCILIATION_FAILED = "RECONCILIATION_FAILED"
     HUMAN_REVIEW_REQUIRED = "HUMAN_REVIEW_REQUIRED"
+    #: Copilot -- a read-only Q&A layer over an already-completed job. Never
+    #: fires for anything that touches a deterministic figure.
+    COPILOT_QUERY = "COPILOT_QUERY"
+    COPILOT_VALIDATION_FAILED = "COPILOT_VALIDATION_FAILED"
+    COPILOT_ERROR = "COPILOT_ERROR"

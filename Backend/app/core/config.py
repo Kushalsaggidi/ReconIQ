@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     # --- App ----------------------------------------------------------
-    app_name: str = "PayRecon — AI-Powered Settlement Reconciliation Agent"
+    app_name: str = "ReconIQ — AI-Powered Settlement Reconciliation Agent"
     environment: Literal["local", "dev", "staging", "prod"] = "local"
     debug: bool = True
     api_prefix: str = "/api"

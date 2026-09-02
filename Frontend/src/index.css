@@ -271,6 +271,14 @@
 }
 .pulse-ring { animation: pulse-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
 
+/* Copilot avatar — bounded animations only: blinking is timer-driven inline
+   style (see CopilotAvatar.tsx), this keyframe runs only while "thinking". */
+@keyframes copilot-think {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(0.8); }
+}
+.copilot-eye-thinking { animation: copilot-think 0.85s ease-in-out infinite; }
+
 @keyframes sweep {
   0%   { transform: translateX(-60%); opacity: 0; }
   40%  { opacity: 1; }

@@ -28,7 +28,12 @@ def _configure_sqlite(engine: Engine) -> None:
     """SQLite defaults are wrong for a service; fix them at connect time.
 
     WAL lets the API read while a background job writes -- without it, polling
-    /status during a run blocks on the writer's lock.
+    /status during a run blocks on the writer's lock. ``busy_timeout`` covers
+    the remaining case: two *writers* at once (the job pipeline's background
+    thread and, e.g., a Copilot request's audit-log write arriving mid-run).
+    Without it, SQLite's default is to fail immediately with "database is
+    locked" instead of waiting -- this makes a transient, sub-second
+    contention wait it out rather than surface as a request failure.
     """
 
     @event.listens_for(engine, "connect")
@@ -37,6 +42,7 @@ def _configure_sqlite(engine: Engine) -> None:
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
 

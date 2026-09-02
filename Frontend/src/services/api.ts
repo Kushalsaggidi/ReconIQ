@@ -18,6 +18,8 @@
 import type {
   AuditEvent,
   AuditPage,
+  CopilotChatMessage,
+  CopilotResponse,
   DatasetFile,
   DatasetKind,
   ExceptionDetail,
@@ -440,4 +442,28 @@ export function getHistory(limit = 25): Promise<HistoryEntry[]> {
 /** Relative URL for the CSV export — a plain navigation goes through the Vite proxy. */
 export function exportUrl(jobId: string, exceptionsOnly: boolean, limit = 5_000): string {
   return `${API_BASE}/${jobId}/export${qs({ exceptions_only: exceptionsOnly, limit })}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Copilot                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * POST /reconciliation/:jobId/copilot — the endpoint is stateless, so the
+ * full (capped) message history is replayed on every call. A provider outage
+ * or a rejected/ungrounded answer both come back as a normal 200 with
+ * `validated: false` and a safe fallback `answer` — never a thrown ApiError —
+ * so the caller only needs to catch genuine network/HTTP failures.
+ */
+export function askCopilot(
+  jobId: string,
+  message: string,
+  history: CopilotChatMessage[],
+  conversationId?: string,
+): Promise<CopilotResponse> {
+  return apiFetch<CopilotResponse>(`/${jobId}/copilot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history, conversationId }),
+  });
 }

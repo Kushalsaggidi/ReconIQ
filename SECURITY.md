@@ -1,6 +1,6 @@
 # Security & Reliability
 
-PayRecon is a hackathon-scope prototype that touches financial data, so the
+ReconIQ is a hackathon-scope prototype that touches financial data, so the
 controls that do exist are documented here — plainly, without overstating
 scope.
 

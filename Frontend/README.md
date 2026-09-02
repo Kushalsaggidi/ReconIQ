@@ -1,4 +1,4 @@
-# PayRecon — AI-Powered Settlement Reconciliation Agent (Frontend)
+# ReconIQ — AI-Powered Settlement Reconciliation Agent (Frontend)
 
 A financial reconciliation engine with **AI-assisted exception analysis**.
 

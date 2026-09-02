@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import health, reconciliation
+from app.api.routes import copilot, health, reconciliation
 from app.core.config import get_settings
 from app.core.errors import ErrorCode, ReconError
 from app.core.logging import configure_logging, get_logger
@@ -42,6 +42,9 @@ Deterministic three-way settlement reconciliation with an advisory AI layer.
 2. `POST /api/reconciliation/run` with the three dataset ids -> `{ jobId }`
 3. Poll `GET /api/reconciliation/{job_id}/status`
 4. Read `/results`, `/transactions`, `/exceptions`, `/audit`
+5. Ask `POST /api/reconciliation/{job_id}/copilot` natural-language questions about
+   that job -- a read-only assistant that answers only through the same tools this
+   API exposes, and can neither compute nor change a reconciliation figure.
 """
 
 
@@ -127,6 +130,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix=settings.api_prefix)
     app.include_router(reconciliation.router, prefix=settings.api_prefix)
+    app.include_router(copilot.router, prefix=settings.api_prefix)
 
     @app.get("/", include_in_schema=False)
     def root() -> dict[str, str]:

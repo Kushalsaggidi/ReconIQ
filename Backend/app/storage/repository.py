@@ -299,6 +299,40 @@ def update_exception_ai(session: Session, exception_id: str, **fields: Any) -> N
     session.flush()
 
 
+def get_largest_variances(session: Session, job_id: str, limit: int = 5) -> list[TransactionResult]:
+    """Exceptions/unresolved rows ordered by |unexplained| descending.
+
+    Used by the Copilot's "largest variances" tool -- same ranking the AI
+    analyser itself uses to prioritise which exceptions matter most.
+    """
+    stmt = (
+        select(TransactionResult)
+        .where(
+            TransactionResult.job_id == job_id,
+            TransactionResult.status != TxnStatus.MATCHED.value,
+        )
+        .order_by(func.abs(TransactionResult.unexplained).desc())
+        .limit(min(limit, MAX_PAGE_SIZE))
+    )
+    return list(session.scalars(stmt))
+
+
+def get_human_review_exceptions(
+    session: Session, job_id: str, limit: int = 10
+) -> list[ExceptionRecord]:
+    """Exceptions flagged for a human, largest unexplained residual first."""
+    stmt = (
+        select(ExceptionRecord)
+        .where(
+            ExceptionRecord.job_id == job_id,
+            ExceptionRecord.requires_human_review.is_(True),
+        )
+        .order_by(func.abs(ExceptionRecord.unexplained).desc())
+        .limit(min(limit, MAX_PAGE_SIZE))
+    )
+    return list(session.scalars(stmt))
+
+
 # ---------------------------------------------------------------------------
 # Audit
 # ---------------------------------------------------------------------------
@@ -338,17 +372,25 @@ def write_audit_batch(session: Session, rows: Iterable[dict[str, Any]]) -> None:
 
 
 def query_audit(
-    session: Session, job_id: str, *, page: int = 1, page_size: int = 100
+    session: Session,
+    job_id: str,
+    *,
+    page: int = 1,
+    page_size: int = 100,
+    event_type: str | None = None,
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(page_size, MAX_PAGE_SIZE))
+    filters = [AuditEvent.job_id == job_id]
+    if event_type:
+        filters.append(AuditEvent.event_type == event_type)
     total = session.scalar(
-        select(func.count()).select_from(AuditEvent).where(AuditEvent.job_id == job_id)
+        select(func.count()).select_from(AuditEvent).where(*filters)
     ) or 0
     rows = list(
         session.scalars(
             select(AuditEvent)
-            .where(AuditEvent.job_id == job_id)
+            .where(*filters)
             .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
             .offset((page - 1) * page_size)
             .limit(page_size)
@@ -388,7 +430,9 @@ __all__ = [
     "create_job",
     "get_dataset",
     "get_exception",
+    "get_human_review_exceptions",
     "get_job",
+    "get_largest_variances",
     "get_transaction",
     "iter_exceptions_for_ai",
     "list_datasets",

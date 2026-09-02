@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { CopilotLauncher } from "@/components/copilot/CopilotLauncher";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -69,6 +70,8 @@ export function AppShell({
           </AnimatePresence>
         </main>
       </div>
+
+      <CopilotLauncher />
     </div>
   );
 }

@@ -230,6 +230,42 @@ export interface HistoryEntry {
   source: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* Copilot — read-only, grounded Q&A over one job. See Backend/app/copilot/. */
+/* ------------------------------------------------------------------ */
+
+export type CopilotRole = "user" | "assistant";
+
+export interface CopilotChatMessage {
+  role: CopilotRole;
+  content: string;
+}
+
+export interface CopilotSource {
+  label: string;
+  tool: string;
+}
+
+export interface CopilotToolCallSummary {
+  tool: string;
+  ok: boolean;
+}
+
+/** "ok" | "provider_unavailable" | "validation_failed" — kept as a plain
+ * string so a future backend status value never breaks this client. */
+export type CopilotStatus = string;
+
+export interface CopilotResponse {
+  answer: string;
+  status: CopilotStatus;
+  /** False whenever `answer` is a safe fallback substituted because the
+   * model's own response failed grounding, or the provider was unavailable. */
+  validated: boolean;
+  sources: CopilotSource[];
+  toolCalls: CopilotToolCallSummary[];
+  model: string | null;
+}
+
 export interface ActivityItem {
   id: string;
   at: string;

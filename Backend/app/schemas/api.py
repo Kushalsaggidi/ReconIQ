@@ -14,7 +14,7 @@ adding is safe, renaming is not.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -312,6 +312,47 @@ class HistoryEntryResponse(ApiModel):
     status: JobStatus
     durationMs: int
     source: str
+
+
+# ---------------------------------------------------------------------------
+# Copilot -- read-only, grounded Q&A over one job. See app/copilot/.
+# ---------------------------------------------------------------------------
+
+class CopilotMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class CopilotRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    conversationId: str | None = None
+    #: Prior turns for this conversation, oldest first. The Copilot endpoint
+    #: is stateless -- there is no server-side chat store -- so the caller
+    #: replays history; the backend caps how much of it is actually used.
+    history: list[CopilotMessage] = Field(default_factory=list)
+
+
+class CopilotToolCallSummary(ApiModel):
+    tool: str
+    ok: bool
+
+
+class CopilotSource(ApiModel):
+    label: str
+    tool: str
+
+
+class CopilotResponse(ApiModel):
+    answer: str
+    #: "ok" | "provider_unavailable" | "validation_failed". Kept as a plain
+    #: str (not an enum) so a future status value never breaks older clients.
+    status: str = "ok"
+    #: False whenever `answer` is a safe fallback substituted because the
+    #: model's own response failed grounding, or the provider was unavailable.
+    validated: bool = True
+    sources: list[CopilotSource] = Field(default_factory=list)
+    toolCalls: list[CopilotToolCallSummary] = Field(default_factory=list)
+    model: str | None = None
 
 
 class HealthResponse(ApiModel):

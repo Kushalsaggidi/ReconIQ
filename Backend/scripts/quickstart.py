@@ -1,4 +1,4 @@
-"""Try PayRecon in minutes -- one command, no server to keep running.
+"""Try ReconIQ in minutes -- one command, no server to keep running.
 
     python scripts/quickstart.py
 
