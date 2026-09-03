@@ -13,8 +13,8 @@ plain English.
 > Humans decide what happens next.**
 
 [The Problem](#the-problem) · [What We Built](#what-we-built) ·
-[Results](#results-at-a-glance) · [Product Tour](#product-tour) ·
-[Copilot](#reconciliation-copilot) · [Architecture](#architecture) ·
+[Architecture](#architecture) · [Results](#results-at-a-glance) ·
+[Product Tour](#product-tour) · [Copilot](#reconciliation-copilot) ·
 [AI Trust](#ai-trust--grounding) · [Security](#security--reliability) ·
 [Performance](#performance--scalability) ·
 [Engineering](#key-engineering-decisions) ·
@@ -138,6 +138,68 @@ The pipeline produces:
   Copilot — attributed to the layer that performed it
 
 <img src="docs/assets/we_built.png" width="720" alt="Three files in, deterministic engine, AI explanation, answers out">
+
+---
+
+## Architecture
+
+<img src="docs/assets/arch.png" width="720" alt="ReconIQ architecture: frontend, backend, ingestion, deterministic reconciliation engine, AI explanation, Copilot, validation, audit">
+
+```
+DATA SOURCES        Orders, Settlements, Bank Statement (CSV/XLSX/XLS/JSON)
+   │
+   ▼
+INGESTION           app/ingestion/     format + dataset-type detection, flexible
+   │                                   column mapping, chunked reads, per-row
+   │                                   validation, never silently drops a row
+   ▼
+NORMALIZATION       app/ingestion/normalizer.py
+   │                                   ₹1,000 / 1,000 / 1000.00 -> integer paise,
+   │                                   dates, currencies, IDs (123456.0 -> "123456")
+   ▼
+DETERMINISTIC       app/reconciliation/  hash-indexed joins (O(n), never O(n²)),
+RECONCILIATION      ENGINE               configurable settlement equation,
+   │                                     deterministic exception rules
+   ▼
+MATCHED /           MATCHED | EXCEPTION | UNRESOLVED, each with evidence + checks
+EXCEPTIONS
+   │
+   ├─────────────────────────────┬─────────────────────────────┐
+   ▼                               ▼
+EXCEPTION ANALYST             RECONCILIATION COPILOT
+   app/ai/                       app/copilot/
+   │  structured facts in,        │  8 read-only tools over the
+   │  validated JSON out          │  same verified data, agentic
+   │  (Gemini/Anthropic/OpenAI)   │  tool-calling (Gemini)
+   ▼                               ▼
+CLASSIFY / EXPLAIN            READ-ONLY TOOL CALLING
+   │                               │
+   └───────────────┬───────────────┘
+                    ▼
+               VALIDATION           assert_grounded() / validate_answer()
+                    │               each rejects unsupported figures & write claims
+                    ▼
+               HUMAN REVIEW
+                    ▼
+                AUDIT TRAIL         app/models/entities.py::AuditEvent, append-only
+                    ▼
+                API / UI            app/api/, FastAPI, camelCase + paise
+```
+
+**Deterministic Core** — matching, arithmetic, financial values,
+reconciliation status, exception rules, metrics. **Exception Analyst** —
+classification and natural-language explanation of individual exceptions,
+invoked automatically after the Deterministic Core finishes. **Reconciliation
+Copilot** — user-initiated, conversational, read-only access to that same
+verified result. **Validation** — checks AI output (both surfaces) against
+the supplied facts, rejects unsupported figures and write claims.
+**Audit** — records Engine, AI Analyst, and Copilot events, each attributed.
+
+> **AI never controls the financial computation, and never gains write
+> access by being conversational.**
+
+Money is **integer minor units (paise)** end to end — `Decimal` only at the
+CSV parse boundary, quantised immediately. Floats never touch a balance.
 
 ---
 
@@ -399,68 +461,6 @@ audit without reference to a model at all.
 * **Audit-ready by construction.** Every step is logged and attributed to
   the layer that performed it — Engine, AI Analyst, or Copilot — and sealed
   once a report is generated.
-
----
-
-## Architecture
-
-<img src="docs/assets/arch.png" width="720" alt="ReconIQ architecture: frontend, backend, ingestion, deterministic reconciliation engine, AI explanation, Copilot, validation, audit">
-
-```
-DATA SOURCES        Orders, Settlements, Bank Statement (CSV/XLSX/XLS/JSON)
-   │
-   ▼
-INGESTION           app/ingestion/     format + dataset-type detection, flexible
-   │                                   column mapping, chunked reads, per-row
-   │                                   validation, never silently drops a row
-   ▼
-NORMALIZATION       app/ingestion/normalizer.py
-   │                                   ₹1,000 / 1,000 / 1000.00 -> integer paise,
-   │                                   dates, currencies, IDs (123456.0 -> "123456")
-   ▼
-DETERMINISTIC       app/reconciliation/  hash-indexed joins (O(n), never O(n²)),
-RECONCILIATION      ENGINE               configurable settlement equation,
-   │                                     deterministic exception rules
-   ▼
-MATCHED /           MATCHED | EXCEPTION | UNRESOLVED, each with evidence + checks
-EXCEPTIONS
-   │
-   ├─────────────────────────────┬─────────────────────────────┐
-   ▼                               ▼
-EXCEPTION ANALYST             RECONCILIATION COPILOT
-   app/ai/                       app/copilot/
-   │  structured facts in,        │  8 read-only tools over the
-   │  validated JSON out          │  same verified data, agentic
-   │  (Gemini/Anthropic/OpenAI)   │  tool-calling (Gemini)
-   ▼                               ▼
-CLASSIFY / EXPLAIN            READ-ONLY TOOL CALLING
-   │                               │
-   └───────────────┬───────────────┘
-                    ▼
-               VALIDATION           assert_grounded() / validate_answer()
-                    │               each rejects unsupported figures & write claims
-                    ▼
-               HUMAN REVIEW
-                    ▼
-                AUDIT TRAIL         app/models/entities.py::AuditEvent, append-only
-                    ▼
-                API / UI            app/api/, FastAPI, camelCase + paise
-```
-
-**Deterministic Core** — matching, arithmetic, financial values,
-reconciliation status, exception rules, metrics. **Exception Analyst** —
-classification and natural-language explanation of individual exceptions,
-invoked automatically after the Deterministic Core finishes. **Reconciliation
-Copilot** — user-initiated, conversational, read-only access to that same
-verified result. **Validation** — checks AI output (both surfaces) against
-the supplied facts, rejects unsupported figures and write claims.
-**Audit** — records Engine, AI Analyst, and Copilot events, each attributed.
-
-> **AI never controls the financial computation, and never gains write
-> access by being conversational.**
-
-Money is **integer minor units (paise)** end to end — `Decimal` only at the
-CSV parse boundary, quantised immediately. Floats never touch a balance.
 
 ---
 
